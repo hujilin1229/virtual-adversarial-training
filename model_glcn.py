@@ -47,6 +47,7 @@ def pairwise_distances(x, y=None):
             if y is not given then use 'y=x'.
     i.e. dist[i,j] = ||x[i,:]-y[j,:]||^2
     '''
+
     x_norm = (x ** 2).sum(1).view(-1, 1)
     if y is not None:
         y_t = torch.transpose(y, 0, 1)
@@ -60,6 +61,42 @@ def pairwise_distances(x, y=None):
     # if y is None:
     #     dist = dist - torch.diag(dist.diag)
     return torch.clamp(dist, 0.0, np.inf)
+
+
+def pairwise_distances_element(x, y=None):
+    '''
+    Input: x is a Nxd matrix
+           y is an optional Mxd matirx
+    Output: dist is a NxM matrix where dist[i,j] is the square norm between x[i,:] and y[j,:]
+            if y is not given then use 'y=x'.
+    i.e. dist[i,j] = ||x[i,:]-y[j,:]||^2
+    '''
+
+    # make x -> (d, N, 1)
+    x = torch.transpose(x, 0 ,1)
+    x = x.unsqueeze(-1)
+    x_square = x ** 2
+
+    if y is not None:
+        # make x -> (d, 1, N)
+        y = torch.transpose(y, 0, 1)
+        y = y.unsqueeze(1)
+        y_square = y ** 2
+    else:
+        # make x -> (d, 1, N)
+        y = torch.transpose(x, 1, 2)
+        y_square = torch.transpose(x_square, 1, 2)
+
+    dist = x_square + y_square - 2.0 * torch.matmul(x, y)
+
+    # make the dist matrix to be NxNxd
+    dist = dist.permute(1, 2, 0)
+
+    torch.clamp(dist, 0.0, np.inf)
+    dist[dist != dist] = 0
+
+
+    return dist
 
 class ResNet(nn.Module):
 
@@ -256,7 +293,7 @@ class GraphLearning(nn.Module):
 
         outputs = []
         for start_idx in range(0, self.total_num, self.batch_size):
-            print(start_idx)
+            # print(start_idx)
             output = self.main(inputs[start_idx:start_idx+self.batch_size])
             output = self.linear(output.view(self.batch_size, -1))
             if self.top_bn:
@@ -264,7 +301,7 @@ class GraphLearning(nn.Module):
             outputs.append(output)
 
         outputs = torch.cat(outputs, dim=0)
-        print("outputs shape is ", outputs.shape)
+        # print("outputs shape is ", outputs.shape)
         S = self.construct_graph_S(outputs)
 
         return outputs, S
@@ -277,14 +314,15 @@ class GraphLearning(nn.Module):
         :return: S
         """
 
-        dist = pairwise_distances(inputs)
+        dist = pairwise_distances_element(inputs)
         # n = inputs.size(0)
         # d = inputs.size(1)
         # S_i = inputs.unsqueeze(1).expand(n, n, d)
         # S_j = inputs.unsqueeze(0).expand(n, n, d)
         #
         # dist = torch.pow(S_i - S_j, 2)
-        dist = torch.sqrt(dist)
+        # dist = torch.sqrt(dist)
+
         dist = F.relu(self.S_linear(dist)).squeeze()
         dist = torch.exp(dist)
         dist = dist / torch.sum(dist, dim=-1)
@@ -292,7 +330,7 @@ class GraphLearning(nn.Module):
         return dist
 
 class GLCN(nn.Module):
-    def __init__(self, in_channels=3, out_channels=70, ngcn_layers=30,
+    def __init__(self, in_channels=3, out_channels=7, ngcn_layers=30,
                  nclass=10, gamma_reg=0.01, dropout=0.2):
         super(GLCN, self).__init__()
 
@@ -303,9 +341,11 @@ class GLCN(nn.Module):
     def forward(self, inputs):
 
         extract_feature, S = self.graph_learning(inputs)
+        # print("Extracted Feature is ", extract_feature.shape)
         semi_outputs = self.gcn(extract_feature, S)
+        # print("GCN output is ", semi_outputs.shape)
 
-        feature_dist = pairwise_distances(extract_feature)
+        feature_dist = pairwise_distances_element(extract_feature)
 
         loss_GL = torch.sum(feature_dist, dim=-1)
         loss_GL = torch.sum(loss_GL * S) + self.gamma_reg*torch.sum(S)

@@ -6,14 +6,10 @@ from model_glcn import GLCN
 from utils import *
 import os
 
-batch_size = 32
-eval_batch_size = 100
-unlabeled_batch_size = 128
 num_labeled = 1000
 num_valid = 1000
-num_iter_per_epoch = 400
-eval_freq = 5
-lr = 0.001
+eval_freq = 10
+lr = 0.005
 cuda_device = "0"
 
 
@@ -21,14 +17,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True, help='cifar10 | svhn')
 parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--use_cuda', type=bool, default=True)
-parser.add_argument('--num_epochs', type=int, default=120)
+parser.add_argument('--num_epochs', type=int, default=5000)
 parser.add_argument('--epoch_decay_start', type=int, default=80)
 parser.add_argument('--epsilon', type=float, default=2.5)
 parser.add_argument('--top_bn', type=bool, default=True)
 parser.add_argument('--method', default='vat')
 
 parser.add_argument('--in_channels', type=int, default=3)
-parser.add_argument('--out_channels', type=int, default=70)
+parser.add_argument('--out_channels', type=int, default=7)
 parser.add_argument('--ngcn_layers', type=int, default=30)
 parser.add_argument('--nclass', type=int, default=10)
 parser.add_argument('--gamma_reg', type=float, default=0.01)
@@ -59,9 +55,11 @@ def train(model, x, y, optimizer, lamda_reg=0.0):
 
     return semi_outputs, loss, ce_loss
 
-def eval(semi_outputs, y):
+def eval(y_pred, y):
 
-    y_pred = semi_outputs[num_labeled:num_labeled+num_valid]
+    # print(semi_outputs.shape)
+    # y_pred = semi_outputs[num_labeled:(num_labeled+num_valid)]
+    print(y_pred.shape)
     prob, idx = torch.max(y_pred, dim=1)
     return torch.eq(idx, y).float().mean()
 
@@ -112,33 +110,33 @@ if opt.dataset == 'svhn':
                           transforms.ToTensor(),
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
-        batch_size=batch_size, shuffle=True)
+        batch_size=100, shuffle=True)
 
-    test_loader = torch.utils.data.DataLoader(
-        datasets.SVHN(root=opt.dataroot, split='test', download=True,
-                      transform=transforms.Compose([
-                          transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                      ])),
-        batch_size=eval_batch_size, shuffle=True)
+    # test_loader = torch.utils.data.DataLoader(
+    #     datasets.SVHN(root=opt.dataroot, split='test', download=True,
+    #                   transform=transforms.Compose([
+    #                       transforms.ToTensor(),
+    #                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    #                   ])),
+    #     batch_size=eval_batch_size, shuffle=True)
 
 elif opt.dataset == 'cifar10':
-    num_labeled = 4000
+    num_labeled = 1000
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10(root=opt.dataroot, train=True, download=True,
                       transform=transforms.Compose([
                           transforms.ToTensor(),
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
-        batch_size=batch_size, shuffle=True)
+        batch_size=100, shuffle=True)
 
-    test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=opt.dataroot, train=False, download=True,
-                      transform=transforms.Compose([
-                          transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                      ])),
-        batch_size=eval_batch_size, shuffle=True)
+    # test_loader = torch.utils.data.DataLoader(
+    #     datasets.CIFAR10(root=opt.dataroot, train=False, download=True,
+    #                   transform=transforms.Compose([
+    #                       transforms.ToTensor(),
+    #                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    #                   ])),
+    #     batch_size=eval_batch_size, shuffle=True)
 
 else:
     raise NotImplementedError
@@ -156,8 +154,12 @@ train_target = torch.cat(train_target, dim=0)
 print(opt.dataset)
 print("Total number of training data is ", train_data.shape)
 
-all_data = tocuda(train_data[:10000])
-all_target = tocuda(train_target[:10000])
+# all_data = tocuda(train_data[:10000])
+# all_target = tocuda(train_target[:10000])
+
+all_data = train_data[:10000]
+all_target = train_target[:10000]
+
 
 train_data, valid_data, test_data = all_data[:num_labeled, ], \
                                     all_data[num_labeled:num_valid+num_labeled, ], \
@@ -167,7 +169,7 @@ train_target, valid_target, test_target = all_target[:num_labeled], \
                                           all_target[num_valid + num_labeled:, ]
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
              opt.nclass, opt.gamma_reg, opt.dropout)
-model = tocuda(model)
+# model = tocuda(model)
 
 # model.apply(weights_init)
 init_all(model, init_funcs)
@@ -188,17 +190,17 @@ for epoch in range(opt.num_epochs):
     # training
     semi_outputs, v_loss, ce_loss = train(model, all_data, train_target, optimizer, opt.lamda_reg)
 
-    print("Epoch :", epoch, "GLCN Loss :", v_loss.data[0], "CE Loss :", ce_loss.data[0])
+    print("Epoch :", epoch, "GLCN Loss :", v_loss.item(), "CE Loss :", ce_loss.item())
 
     # evaluating
     if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
         train_preds = semi_outputs[:num_labeled]
         train_accuracy = eval(train_preds, train_target)
-        print("Train accuracy :", train_accuracy.data[0])
+        print("Train accuracy :", train_accuracy.item())
 
         val_preds = semi_outputs[num_labeled:num_valid+num_labeled]
         val_accuracy = eval(val_preds, valid_target)
-        print("Valid accuracy :", val_accuracy.data[0])
+        print("Valid accuracy :", val_accuracy.item())
 
         if val_accuracy > min_valid_acc:
             min_valid_acc = val_accuracy
