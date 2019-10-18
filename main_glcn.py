@@ -45,28 +45,23 @@ def tocuda(x):
     return x
 
 
-def train(model, x, y, ul_x, optimizer):
+def train(model, x, y, optimizer, lamda_reg=0.0):
 
+    model.train()
     ce = nn.CrossEntropyLoss()
-    y_pred = model(x)
-    ce_loss = ce(y_pred, y)
 
-    ul_y = model(ul_x)
-    v_loss = vat_loss(model, ul_x, ul_y, eps=opt.epsilon)
-    loss = v_loss + ce_loss
-    if opt.method == 'vatent':
-        loss += entropy_loss(ul_y)
-
+    semi_outputs, loss_GL = model(x)
+    ce_loss = ce(semi_outputs[:num_labeled], y)
+    loss = ce_loss + lamda_reg * loss_GL
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-    return v_loss, ce_loss
+    return semi_outputs, loss, ce_loss
 
+def eval(semi_outputs, y):
 
-def eval(model, x, y):
-
-    y_pred = model(x)
+    y_pred = semi_outputs[num_labeled:num_labeled+num_valid]
     prob, idx = torch.max(y_pred, dim=1)
     return torch.eq(idx, y).float().mean()
 
@@ -108,7 +103,6 @@ init_funcs = {
     4: lambda x: torch.nn.init.xavier_uniform_(x, gain=1.), # can be conv2D filter
     "default": lambda x: torch.nn.init.xavier_uniform_(x, gain=1.), # everything else
 }
-
 
 
 if opt.dataset == 'svhn':
@@ -162,27 +156,27 @@ train_target = torch.cat(train_target, dim=0)
 print(opt.dataset)
 print("Total number of training data is ", train_data.shape)
 
-train_data = train_data[:10000]
-train_target = train_target[:10000]
-valid_data, train_data, test_data = train_data[:num_labeled, ], \
-                                    train_data[num_labeled:num_valid+num_labeled, ], \
-                                    train_data[num_valid+num_labeled:, ]
-valid_target, train_target, test_target = train_target[:num_labeled], \
-                                          train_target[num_labeled:num_valid + num_labeled, ], \
-                                          train_target[num_valid + num_labeled:, ]
+all_data = tocuda(train_data[:10000])
+all_target = tocuda(train_target[:10000])
 
-# labeled_train, labeled_target = train_data[:num_labeled, ], train_target[:num_labeled, ]
-# unlabeled_train = train_data[num_labeled:, ]
-
-# model = tocuda(VAT(opt.top_bn))
+train_data, valid_data, test_data = all_data[:num_labeled, ], \
+                                    all_data[num_labeled:num_valid+num_labeled, ], \
+                                    all_data[num_valid+num_labeled:, ]
+train_target, valid_target, test_target = all_target[:num_labeled], \
+                                          all_target[num_labeled:num_valid + num_labeled, ], \
+                                          all_target[num_valid + num_labeled:, ]
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
-             opt.nclass, opt.gamma_reg, opt.lamda_reg, opt.dropout)
+             opt.nclass, opt.gamma_reg, opt.dropout)
 model = tocuda(model)
 
 # model.apply(weights_init)
 init_all(model, init_funcs)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
+min_valid_acc = 0.0
+no_increase_step = 0
+
+final_output = None
 # train the network
 for epoch in range(opt.num_epochs):
 
@@ -191,40 +185,33 @@ for epoch in range(opt.num_epochs):
         optimizer.lr = decayed_lr
         optimizer.betas = (0.5, 0.999)
 
-    for i in range(num_iter_per_epoch):
+    # training
+    semi_outputs, v_loss, ce_loss = train(model, all_data, train_target, optimizer, opt.lamda_reg)
 
-        batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
-        x = labeled_train[batch_indices]
-        y = labeled_target[batch_indices]
-        batch_indices_unlabeled = torch.LongTensor(np.random.choice(unlabeled_train.size()[0], unlabeled_batch_size, replace=False))
-        ul_x = unlabeled_train[batch_indices_unlabeled]
+    print("Epoch :", epoch, "GLCN Loss :", v_loss.data[0], "CE Loss :", ce_loss.data[0])
 
-        v_loss, ce_loss = train(model.train(), Variable(tocuda(x)), Variable(tocuda(y)), Variable(tocuda(ul_x)),
-                                optimizer)
-
-        if i % 100 == 0:
-            print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.data[0], "CE Loss :", ce_loss.data[0])
-
+    # evaluating
     if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
-
-        batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
-        x = labeled_train[batch_indices]
-        y = labeled_target[batch_indices]
-        train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
+        train_preds = semi_outputs[:num_labeled]
+        train_accuracy = eval(train_preds, train_target)
         print("Train accuracy :", train_accuracy.data[0])
 
-        for (data, target) in test_loader:
-            test_accuracy = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
-            print("Test accuracy :", test_accuracy.data[0])
+        val_preds = semi_outputs[num_labeled:num_valid+num_labeled]
+        val_accuracy = eval(val_preds, valid_target)
+        print("Valid accuracy :", val_accuracy.data[0])
+
+        if val_accuracy > min_valid_acc:
+            min_valid_acc = val_accuracy
+            no_increase_step = 0
+        else:
+            no_increase_step += 1
+
+        if no_increase_step == 100:
+            final_output = semi_outputs
             break
 
+    final_output = semi_outputs
 
-test_accuracy = 0.0
-counter = 0
-for (data, target) in test_loader:
-    n = data.size()[0]
-    acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
-    test_accuracy += n*acc
-    counter += n
-
-print("Full test accuracy :", test_accuracy.data[0]/counter)
+test_preds = final_output[num_valid+num_labeled:]
+test_accuracy = eval(test_preds, test_target)
+print("Test accuracy :", test_accuracy.data[0])
