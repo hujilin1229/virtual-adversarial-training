@@ -350,7 +350,7 @@ class GLCN(nn.Module):
         loss_GL = torch.sum(feature_dist, dim=-1)
         loss_GL = torch.sum(loss_GL * S) + self.gamma_reg*torch.sum(S)
 
-        return semi_outputs, loss_GL
+        return semi_outputs, loss_GL, S
 
 
 

@@ -5,6 +5,7 @@ from model import *
 from model_glcn import GLCN
 from utils import *
 import os
+import torch
 
 num_labeled = 1000
 num_valid = 1000
@@ -27,8 +28,8 @@ parser.add_argument('--in_channels', type=int, default=3)
 parser.add_argument('--out_channels', type=int, default=7)
 parser.add_argument('--ngcn_layers', type=int, default=30)
 parser.add_argument('--nclass', type=int, default=10)
-parser.add_argument('--gamma_reg', type=float, default=0.1)
-parser.add_argument('--lamda_reg', type=float, default=0.1)
+parser.add_argument('--gamma_reg', type=float, default=0.01)
+parser.add_argument('--lamda_reg', type=float, default=0.00001)
 parser.add_argument('--dropout', type=float, default=0.2)
 parser.add_argument('--cuda', dest='cuda', default='0', type=str)
 parser.add_argument('--mode', default='gpu', help='cpu/gpu')
@@ -58,7 +59,8 @@ def train(model, x, y, optimizer, lamda_reg=0.0):
     model.train()
     ce = nn.CrossEntropyLoss()
 
-    semi_outputs, loss_GL = model(x)
+    semi_outputs, loss_GL, S = model(x)
+    print("The learned S is ", torch.sum(S, dim=-1))
     ce_loss = ce(semi_outputs[:num_labeled], y)
     loss = ce_loss + lamda_reg * loss_GL
     optimizer.zero_grad()
