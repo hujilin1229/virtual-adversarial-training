@@ -315,15 +315,8 @@ class GraphLearning(nn.Module):
         """
 
         dist = pairwise_distances_element(inputs)
-        # n = inputs.size(0)
-        # d = inputs.size(1)
-        # S_i = inputs.unsqueeze(1).expand(n, n, d)
-        # S_j = inputs.unsqueeze(0).expand(n, n, d)
-        #
-        # dist = torch.pow(S_i - S_j, 2)
-        # dist = torch.sqrt(dist)
-
         dist = F.relu(self.S_linear(dist)).squeeze()
+        print("dist shape after a^{t} |x_i - x_j|", dist.shape)
         dist = torch.exp(dist)
         dist = dist / torch.sum(dist, dim=-1)
 
@@ -345,9 +338,9 @@ class GLCN(nn.Module):
         semi_outputs = self.gcn(extract_feature, S)
         # print("GCN output is ", semi_outputs.shape)
 
-        feature_dist = pairwise_distances_element(extract_feature)
+        loss_GL = pairwise_distances(extract_feature)
 
-        loss_GL = torch.sum(feature_dist, dim=-1)
+        # loss_GL = torch.sum(feature_dist, dim=-1)
         loss_GL = torch.sum(loss_GL * S) + self.gamma_reg*torch.sum(S)
 
         return semi_outputs, loss_GL, S
