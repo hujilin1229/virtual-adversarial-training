@@ -27,13 +27,25 @@ parser.add_argument('--in_channels', type=int, default=3)
 parser.add_argument('--out_channels', type=int, default=7)
 parser.add_argument('--ngcn_layers', type=int, default=30)
 parser.add_argument('--nclass', type=int, default=10)
-parser.add_argument('--gamma_reg', type=float, default=0.01)
-parser.add_argument('--lamda_reg', type=float, default=0.0)
+parser.add_argument('--gamma_reg', type=float, default=0.1)
+parser.add_argument('--lamda_reg', type=float, default=0.1)
 parser.add_argument('--dropout', type=float, default=0.2)
+parser.add_argument('--cuda', dest='cuda', default='0', type=str)
+parser.add_argument('--mode', default='gpu', help='cpu/gpu')
 
 opt = parser.parse_args()
 
 os.environ["CUDA_VISIBLE_DEVICES"] = cuda_device
+
+# set up gpu
+if opt.mode == 'gpu':
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(opt.cuda)
+    print('Using GPU {}'.format(os.environ['CUDA_VISIBLE_DEVICES']), flush= True)
+else:
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    print('Using CPU', flush= True)
+opt.device = torch.device('cuda:0' if opt.mode == 'gpu' else 'cpu')
 
 def tocuda(x):
     if opt.use_cuda:
@@ -59,7 +71,6 @@ def eval(y_pred, y):
 
     # print(semi_outputs.shape)
     # y_pred = semi_outputs[num_labeled:(num_labeled+num_valid)]
-    print(y_pred.shape)
     prob, idx = torch.max(y_pred, dim=1)
     return torch.eq(idx, y).float().mean()
 
@@ -102,7 +113,6 @@ init_funcs = {
     "default": lambda x: torch.nn.init.xavier_uniform_(x, gain=1.), # everything else
 }
 
-
 if opt.dataset == 'svhn':
     train_loader = torch.utils.data.DataLoader(
         datasets.SVHN(root=opt.dataroot, split='train', download=True,
@@ -111,14 +121,6 @@ if opt.dataset == 'svhn':
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
         batch_size=100, shuffle=True)
-
-    # test_loader = torch.utils.data.DataLoader(
-    #     datasets.SVHN(root=opt.dataroot, split='test', download=True,
-    #                   transform=transforms.Compose([
-    #                       transforms.ToTensor(),
-    #                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    #                   ])),
-    #     batch_size=eval_batch_size, shuffle=True)
 
 elif opt.dataset == 'cifar10':
     num_labeled = 1000
@@ -129,14 +131,6 @@ elif opt.dataset == 'cifar10':
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
         batch_size=100, shuffle=True)
-
-    # test_loader = torch.utils.data.DataLoader(
-    #     datasets.CIFAR10(root=opt.dataroot, train=False, download=True,
-    #                   transform=transforms.Compose([
-    #                       transforms.ToTensor(),
-    #                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    #                   ])),
-    #     batch_size=eval_batch_size, shuffle=True)
 
 else:
     raise NotImplementedError
@@ -157,8 +151,8 @@ print("Total number of training data is ", train_data.shape)
 # all_data = tocuda(train_data[:10000])
 # all_target = tocuda(train_target[:10000])
 
-all_data = train_data[:10000]
-all_target = train_target[:10000]
+all_data = train_data[:10000].to(opt.device)
+all_target = train_target[:10000].to(opt.device)
 
 
 train_data, valid_data, test_data = all_data[:num_labeled, ], \
@@ -167,8 +161,9 @@ train_data, valid_data, test_data = all_data[:num_labeled, ], \
 train_target, valid_target, test_target = all_target[:num_labeled], \
                                           all_target[num_labeled:num_valid + num_labeled, ], \
                                           all_target[num_valid + num_labeled:, ]
+
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
-             opt.nclass, opt.gamma_reg, opt.dropout)
+             opt.nclass, opt.gamma_reg, opt.dropout).to(opt.device)
 # model = tocuda(model)
 
 # model.apply(weights_init)
@@ -216,4 +211,4 @@ for epoch in range(opt.num_epochs):
 
 test_preds = final_output[num_valid+num_labeled:]
 test_accuracy = eval(test_preds, test_target)
-print("Test accuracy :", test_accuracy.data[0])
+print("Test accuracy :", test_accuracy.item())
