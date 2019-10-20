@@ -25,7 +25,7 @@ parser.add_argument('--epoch_decay_start', type=int, default=80)
 parser.add_argument('--epsilon', type=float, default=2.5)
 parser.add_argument('--top_bn', type=bool, default=True)
 parser.add_argument('--method', default='vat')
-parser.add_argument('--train', type=bool, default=True)
+parser.add_argument('--train', default=True, action='store_false')
 
 opt = parser.parse_args()
 
