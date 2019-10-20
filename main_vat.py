@@ -195,7 +195,7 @@ for epoch in range(opt.num_epochs):
         v_loss, ce_loss = train(model.train(), Variable(tocuda(x)), Variable(tocuda(y)), Variable(tocuda(ul_x)),
                                 optimizer)
         if i % 100 == 0:
-            print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item())
+            print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
 
     if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
         # batch_indices = torch.LongTensor(np.random.choice(labeled_val.size()[0], batch_size, replace=False))
@@ -212,7 +212,7 @@ for epoch in range(opt.num_epochs):
             acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
             val_accuracy += eval_batch_size * acc
             counter += eval_batch_size
-        print("Val accuracy :", val_accuracy.item()/counter)
+        print("Val accuracy :", val_accuracy.item()/counter, flush=True)
 
         if max_val_acc < val_accuracy:
             max_val_acc = val_accuracy
@@ -241,7 +241,7 @@ for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):
     test_accuracy += eval_batch_size * acc
     counter += eval_batch_size
 
-print("Full test accuracy :", test_accuracy.item()/counter)
+print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
 
 # write the resulted data
 # compose all the data and label together
