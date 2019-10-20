@@ -298,6 +298,8 @@ assert W.nnz % 2 == 0
 assert np.abs(W - W.T).mean() < 1e-10
 
 data_path = f'./data/{opt.dataset}/'
+if not os.path.exists(os.path.dirname(data_path)):
+    os.mkdir(os.path.dirname(data_path))
 np.save(data_path + 'all_input.npy', all_data)
 np.save(data_path + 'all_target.npy', all_target)
 np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
