@@ -107,10 +107,15 @@ elif opt.dataset == 'cifar10':
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
         batch_size=eval_batch_size, shuffle=True)
-
-# elif opt.dataset == 'mnist':
-#     X_train, y_train, X_test, y_test = load_mnist_realval()
-
+elif opt.dataset == 'mnist':
+    # num_labeled = 1000
+    train_loader = torch.utils.data.DataLoader(
+        datasets.MNIST(root=opt.dataroot, train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ])),
+        batch_size=100, shuffle=True)
 else:
     raise NotImplementedError
 
@@ -165,7 +170,10 @@ unlabeled_train_label = torch.cat(unlabeled_train_label, dim=0)
 # labeled_train, labeled_target = train_data[:num_labeled, ], train_target[:num_labeled, ]
 # unlabeled_train = train_data[num_labeled:, ]
 
-model = tocuda(VAT(opt.top_bn))
+in_channels = 3
+if opt.dataset == 'mnist':
+    in_channels = 1
+model = tocuda(VAT(opt.top_bn, in_channels))
 model.apply(weights_init)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 max_val_acc = 0.0
