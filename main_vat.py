@@ -25,7 +25,7 @@ parser.add_argument('--epoch_decay_start', type=int, default=80)
 parser.add_argument('--epsilon', type=float, default=2.5)
 parser.add_argument('--top_bn', type=bool, default=True)
 parser.add_argument('--method', default='vat')
-
+parser.add_argument('--train', type=bool, default=True)
 
 opt = parser.parse_args()
 
@@ -184,52 +184,59 @@ path_best_model = f'./saved_models/{opt.dataset}/test_model'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
-# train the network
-for epoch in range(opt.num_epochs):
+if opt.train:
+    # train the network
+    for epoch in range(opt.num_epochs):
 
-    if epoch > opt.epoch_decay_start:
-        decayed_lr = (opt.num_epochs - epoch) * lr / (opt.num_epochs - opt.epoch_decay_start)
-        optimizer.lr = decayed_lr
-        optimizer.betas = (0.5, 0.999)
+        if epoch > opt.epoch_decay_start:
+            decayed_lr = (opt.num_epochs - epoch) * lr / (opt.num_epochs - opt.epoch_decay_start)
+            optimizer.lr = decayed_lr
+            optimizer.betas = (0.5, 0.999)
 
-    for i in range(num_iter_per_epoch):
-        batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
-        x = train_data[batch_indices]
-        y = labeled_train[batch_indices]
-        batch_indices_unlabeled = torch.LongTensor(np.random.choice(
-            unlabeled_train_data.size()[0], unlabeled_batch_size, replace=False))
-        
-        ul_x = unlabeled_train_data[batch_indices_unlabeled]
-        v_loss, ce_loss = train(model.train(), Variable(tocuda(x)), Variable(tocuda(y)), Variable(tocuda(ul_x)),
-                                optimizer)
-        if i % 100 == 0:
-            print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
+        for i in range(num_iter_per_epoch):
+            batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
+            x = train_data[batch_indices]
+            y = labeled_train[batch_indices]
+            batch_indices_unlabeled = torch.LongTensor(np.random.choice(
+                unlabeled_train_data.size()[0], unlabeled_batch_size, replace=False))
 
-    if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
-        # batch_indices = torch.LongTensor(np.random.choice(labeled_val.size()[0], batch_size, replace=False))
-        # x = valid_data[batch_indices]
-        # y = labeled_val[batch_indices]
-        # train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
-        # print("Val accuracy :", train_accuracy.item())
+            ul_x = unlabeled_train_data[batch_indices_unlabeled]
+            v_loss, ce_loss = train(model.train(), Variable(tocuda(x)), Variable(tocuda(y)), Variable(tocuda(ul_x)),
+                                    optimizer)
+            if i % 100 == 0:
+                print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
 
-        val_accuracy = 0.0
-        counter = 0
-        for i in range(0, valid_data.shape[0], eval_batch_size):
-            data = valid_data[i:i + eval_batch_size]
-            target = labeled_val[i:i + eval_batch_size]
-            acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
-            val_accuracy += eval_batch_size * acc
-            counter += eval_batch_size
-        print("Val accuracy :", val_accuracy.item()/counter, flush=True)
+        if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
+            # batch_indices = torch.LongTensor(np.random.choice(labeled_val.size()[0], batch_size, replace=False))
+            # x = valid_data[batch_indices]
+            # y = labeled_val[batch_indices]
+            # train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
+            # print("Val accuracy :", train_accuracy.item())
 
-        if max_val_acc < val_accuracy:
-            max_val_acc = val_accuracy
-            patience = 0
-            torch.save(model.state_dict(), path_best_model)
-        else:
-            patience += 0
-            if patience >= max_patience:
-                break
+            val_accuracy = 0.0
+            counter = 0
+            for i in range(0, valid_data.shape[0], eval_batch_size):
+                data = valid_data[i:i + eval_batch_size]
+                target = labeled_val[i:i + eval_batch_size]
+                acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
+                val_accuracy += eval_batch_size * acc
+                counter += eval_batch_size
+            print("Val accuracy :", val_accuracy.item()/counter, flush=True)
+
+            if max_val_acc < val_accuracy:
+                max_val_acc = val_accuracy
+                patience = 0
+                torch.save(model.state_dict(), path_best_model)
+            else:
+                patience += 0
+                if patience >= max_patience:
+                    break
+
+model.train()
+if os.path.exists(path_best_model):
+    # original saved file with DataParallel
+    state_dict = torch.load(path_best_model)
+    model.load_state_dict(state_dict)
 
 test_accuracy = 0.0
 counter = 0
@@ -238,7 +245,6 @@ counter = 0
 #     acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
 #     test_accuracy += n*acc
 #     counter += n
-
 
 test_pred = []
 for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):
@@ -274,8 +280,9 @@ for i in range(N):
     col_list += same_label_ind.tolist()
     row_list += [i] * len(same_label_ind)
 
+    connected_labels = construct_graph_label[same_label_ind]
     connected_gt_labels = all_target[same_label_ind]
-    correct_connect_sum += np.sum(connected_gt_labels == label_i)
+    correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
     connect_sum += len(same_label_ind)
 
 print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
