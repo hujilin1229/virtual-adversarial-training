@@ -316,9 +316,10 @@ class GraphLearning(nn.Module):
 
         dist = pairwise_distances_element(inputs)
         dist = F.relu(self.S_linear(dist)).squeeze()
-        print("dist shape after a^{t} |x_i - x_j|", dist.shape)
+        # print("dist shape after a^{t} |x_i - x_j|", dist.shape)
         dist = torch.exp(dist)
-        dist = dist / torch.sum(dist, dim=-1)
+        dist = dist / torch.sum(dist, dim=-1, keepdim=True)
+        print(dist.max())
 
         return dist
 

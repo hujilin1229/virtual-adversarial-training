@@ -17,12 +17,12 @@ cuda_device = "0"
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True, help='cifar10 | svhn')
 parser.add_argument('--dataroot', required=True, help='path to dataset')
-parser.add_argument('--use_cuda', type=bool, default=True)
 parser.add_argument('--num_epochs', type=int, default=5000)
 parser.add_argument('--epoch_decay_start', type=int, default=80)
 parser.add_argument('--epsilon', type=float, default=2.5)
 parser.add_argument('--top_bn', type=bool, default=True)
 parser.add_argument('--method', default='vat')
+parser.add_argument('--lr', type=float, default=0.1)
 
 parser.add_argument('--in_channels', type=int, default=3)
 parser.add_argument('--out_channels', type=int, default=7)
@@ -170,7 +170,7 @@ model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
 
 # model.apply(weights_init)
 init_all(model, init_funcs)
-optimizer = optim.Adam(model.parameters(), lr=lr)
+optimizer = optim.Adam(model.parameters(), lr=opt.lr)
 
 min_valid_acc = 0.0
 no_increase_step = 0
@@ -180,7 +180,7 @@ final_output = None
 for epoch in range(opt.num_epochs):
 
     if epoch > opt.epoch_decay_start:
-        decayed_lr = (opt.num_epochs - epoch) * lr / (opt.num_epochs - opt.epoch_decay_start)
+        decayed_lr = (opt.num_epochs - epoch) * opt.lr / (opt.num_epochs - opt.epoch_decay_start)
         optimizer.lr = decayed_lr
         optimizer.betas = (0.5, 0.999)
 
