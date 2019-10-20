@@ -2,12 +2,12 @@ import torch.nn as nn
 
 class VAT(nn.Module):
 
-      def __init__(self, top_bn=True):
+      def __init__(self, top_bn=True, input_channels=3):
 
             super(VAT, self).__init__()
             self.top_bn = top_bn
             self.main = nn.Sequential(
-                  nn.Conv2d(3, 128, 3, 1, 1, bias=False),
+                  nn.Conv2d(input_channels, 128, 3, 1, 1, bias=False),
                   nn.BatchNorm2d(128),
                   nn.LeakyReLU(0.1),
 
