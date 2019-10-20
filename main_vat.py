@@ -108,6 +108,9 @@ elif opt.dataset == 'cifar10':
                       ])),
         batch_size=eval_batch_size, shuffle=True)
 
+# elif opt.dataset == 'mnist':
+#     X_train, y_train, X_test, y_test = load_mnist_realval()
+
 else:
     raise NotImplementedError
 
@@ -165,6 +168,13 @@ unlabeled_train_label = torch.cat(unlabeled_train_label, dim=0)
 model = tocuda(VAT(opt.top_bn))
 model.apply(weights_init)
 optimizer = optim.Adam(model.parameters(), lr=lr)
+max_val_acc = 0.0
+patience = 0
+max_patience = 10
+
+path_best_model = f'./saved_models/{opt.dataset}/test_model'
+if not os.path.exists(os.path.dirname(path_best_model)):
+    os.mkdir(os.path.dirname(path_best_model))
 
 # train the network
 for epoch in range(opt.num_epochs):
@@ -188,17 +198,30 @@ for epoch in range(opt.num_epochs):
             print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item())
 
     if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
-        batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
-        x = valid_data[batch_indices]
-        y = labeled_val[batch_indices]
-        train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
-        print("Train accuracy :", train_accuracy.item())
+        # batch_indices = torch.LongTensor(np.random.choice(labeled_val.size()[0], batch_size, replace=False))
+        # x = valid_data[batch_indices]
+        # y = labeled_val[batch_indices]
+        # train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
+        # print("Val accuracy :", train_accuracy.item())
 
-        for (data, target) in test_loader:
-            test_accuracy = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
-            print("Val accuracy :", test_accuracy.item())
-            break
+        val_accuracy = 0.0
+        counter = 0
+        for i in range(0, valid_data.shape[0], eval_batch_size):
+            data = valid_data[i:i + eval_batch_size]
+            target = labeled_val[i:i + eval_batch_size]
+            acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
+            val_accuracy += eval_batch_size * acc
+            counter += eval_batch_size
+        print("Val accuracy :", val_accuracy.item()/counter)
 
+        if max_val_acc < val_accuracy:
+            max_val_acc = val_accuracy
+            patience = 0
+            torch.save(model.state_dict(), path_best_model)
+        else:
+            patience += 0
+            if patience >= max_patience:
+                break
 
 test_accuracy = 0.0
 counter = 0
@@ -208,11 +231,62 @@ counter = 0
 #     test_accuracy += n*acc
 #     counter += n
 
+
+test_pred = []
 for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):
     data = unlabeled_train_data[i:i+eval_batch_size]
     target = unlabeled_train_label[i:i+eval_batch_size]
+    test_pred.append(target)
     acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
     test_accuracy += eval_batch_size * acc
     counter += eval_batch_size
 
 print("Full test accuracy :", test_accuracy.item()/counter)
+
+# write the resulted data
+# compose all the data and label together
+test_pred = torch.cat(test_pred, dim=0)
+all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
+all_target = torch.cat([labeled_train, labeled_val, unlabeled_train_label], dim=0)
+construct_graph_label = torch.cat([labeled_train, labeled_val, test_pred], dim=0)
+all_data = all_data.cpu().numpy()
+all_target = all_target.cpu().numpy()
+construct_graph_label = construct_graph_label.cpu().numpy()
+N = all_data.shape[0]
+num_labeled = train_data.shape[0]
+num_valid = valid_data.shape[0]
+
+col_list = []
+row_list = []
+correct_connect_sum = 0
+connect_sum = 0
+for i in range(N):
+    label_i = construct_graph_label[i]
+    same_label_ind = np.arange(N)[construct_graph_label==label_i]
+    col_list += same_label_ind.tolist()
+    row_list += [i] * len(same_label_ind)
+
+    connected_gt_labels = all_target[same_label_ind]
+    correct_connect_sum += np.sum(connected_gt_labels == label_i)
+    connect_sum += len(same_label_ind)
+
+print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+
+dist_list = [1] * len(col_list)
+W = scipy.sparse.coo_matrix((dist_list, (row_list, col_list)), shape=(N, N))
+# No self-connections.
+W.setdiag(0)
+# Non-directed graph.
+bigger = W.T > W
+W = W - W.multiply(bigger) + W.T.multiply(bigger)
+assert W.nnz % 2 == 0
+assert np.abs(W - W.T).mean() < 1e-10
+
+data_path = f'./data/{opt.dataset}/'
+np.save(data_path + 'all_input.npy', all_data)
+np.save(data_path + 'all_target.npy', all_target)
+np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
+np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
+np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
+scipy.sparse.save_npz(data_path + 'adj.npz', W)
+
