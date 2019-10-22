@@ -402,10 +402,11 @@ class GLCN(nn.Module):
 
         loss_GL = pairwise_distances(extract_feature)
 
+        S_dense = S.todense()
         # loss_GL = torch.sum(feature_dist, dim=-1)
-        # loss_GL = torch.sum(loss_GL * S) + self.gamma_reg*torch.sum(S)
+        loss_GL = torch.sum(loss_GL * S_dense) + self.gamma_reg*torch.sum(S_dense)
 
-        loss_GL = GLCN.sparse_dense_mul(S, loss_GL) + self.gamma_reg * torch.sum(S._values())
+        # loss_GL = GLCN.sparse_dense_mul(S, loss_GL) + self.gamma_reg * torch.sum(S._values())
 
         return semi_outputs, loss_GL, S
 
