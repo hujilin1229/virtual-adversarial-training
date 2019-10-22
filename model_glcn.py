@@ -386,6 +386,13 @@ class GLCN(nn.Module):
         self.graph_learning = GraphLearning(in_channels, out_channels, top_bn=True)
         self.gcn = GCN(out_channels, ngcn_layers, nclass, dropout)
 
+    @staticmethod
+    def sparse_dense_mul(s, d):
+        i = s._indices()
+        v = s._values()
+        dv = d[i[0, :], i[1, :]]  # get values from relevant entries of dense matrix
+        return torch.sum(dv * v)
+
     def forward(self, inputs):
 
         extract_feature, S = self.graph_learning(inputs)
@@ -396,7 +403,9 @@ class GLCN(nn.Module):
         loss_GL = pairwise_distances(extract_feature)
 
         # loss_GL = torch.sum(feature_dist, dim=-1)
-        loss_GL = torch.sum(loss_GL * S) + self.gamma_reg*torch.sum(S)
+        # loss_GL = torch.sum(loss_GL * S) + self.gamma_reg*torch.sum(S)
+
+        loss_GL = GLCN.sparse_dense_mul(S, loss_GL) + self.gamma_reg * torch.sum(S._values())
 
         return semi_outputs, loss_GL, S
 
