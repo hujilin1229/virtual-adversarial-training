@@ -367,6 +367,8 @@ class GraphLearning(nn.Module):
         row_indices = torch.tensor(row_indices).to(x.device)
         col_indices = torch.cat(col_indices)
         values = torch.cat(values)
+        print(col_indices)
+        print(values)
         S = torch.sparse.FloatTensor(torch.stack([row_indices, col_indices], dim=1), values, torch.Size([N, N]))
             # # print(i, dist_i.shape)
             # S[i] = F.relu(self.S_linear(dist_i)).squeeze()
