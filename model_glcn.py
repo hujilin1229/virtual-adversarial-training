@@ -364,10 +364,12 @@ class GraphLearning(nn.Module):
             tmp_values = F.softmax(tmp_values)
             values.append(tmp_values)
 
-        row_indices = torch.tensor(row_indices).to(x.device)
+        row_indices = torch.tensor(row_indices).long().to(x.device)
         col_indices = torch.cat(col_indices)
         values = torch.cat(values)
-        print(col_indices)
+
+        print(row_indices.shape)
+        print(col_indices.shape)
         print(values)
         S = torch.sparse.FloatTensor(torch.stack([row_indices, col_indices], dim=1), values, torch.Size([N, N]))
             # # print(i, dist_i.shape)
