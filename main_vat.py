@@ -59,7 +59,7 @@ def eval(model, x, y):
 
     y_pred = model(x)
     prob, idx = torch.max(y_pred, dim=1)
-    return torch.eq(idx, y).float().mean()
+    return torch.eq(idx, y).float().mean(), idx
 
 
 def weights_init(m):
@@ -218,7 +218,7 @@ if opt.train:
             for i in range(0, valid_data.shape[0], eval_batch_size):
                 data = valid_data[i:i + eval_batch_size]
                 target = labeled_val[i:i + eval_batch_size]
-                acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
+                acc, _ = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
                 val_accuracy += eval_batch_size * acc
                 counter += eval_batch_size
             print("Val accuracy :", val_accuracy.item()/counter, flush=True)
@@ -250,8 +250,9 @@ test_pred = []
 for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):
     data = unlabeled_train_data[i:i+eval_batch_size]
     target = unlabeled_train_label[i:i+eval_batch_size]
-    test_pred.append(target)
-    acc = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
+    acc, pred = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
+
+    test_pred.append(pred)
     test_accuracy += eval_batch_size * acc
     counter += eval_batch_size
 
@@ -259,7 +260,7 @@ print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
 
 # write the resulted data
 # compose all the data and label together
-test_pred = torch.cat(test_pred, dim=0)
+test_pred = torch.cat(test_pred, dim=0).cpu()
 all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
 all_target = torch.cat([labeled_train, labeled_val, unlabeled_train_label], dim=0)
 construct_graph_label = torch.cat([labeled_train, labeled_val, test_pred], dim=0)
@@ -274,14 +275,19 @@ col_list = []
 row_list = []
 correct_connect_sum = 0
 connect_sum = 0
+K = 10
 for i in range(N):
     label_i = construct_graph_label[i]
     same_label_ind = np.arange(N)[construct_graph_label==label_i]
+    same_label_ind = np.random.choice(same_label_ind, K, replace=False)
+    # print(i, same_label_ind)
+
     col_list += same_label_ind.tolist()
     row_list += [i] * len(same_label_ind)
-
     connected_labels = construct_graph_label[same_label_ind]
     connected_gt_labels = all_target[same_label_ind]
+    # print(connected_labels)
+    # print(connected_gt_labels)
     correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
     connect_sum += len(same_label_ind)
 

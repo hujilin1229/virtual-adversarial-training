@@ -89,14 +89,15 @@ def pairwise_distances_element(x, y=None):
 
     dist = x_square + y_square - 2.0 * torch.matmul(x, y)
 
-    # make the dist matrix to be NxNxd
+    # make the dist matrix to be NxMxd
     dist = dist.permute(1, 2, 0)
 
     torch.clamp(dist, 0.0, np.inf)
     dist[dist != dist] = 0
 
-
     return dist
+
+
 
 class ResNet(nn.Module):
 
@@ -301,8 +302,8 @@ class GraphLearning(nn.Module):
             outputs.append(output)
 
         outputs = torch.cat(outputs, dim=0)
-        # print("outputs shape is ", outputs.shape)
-        S = self.construct_graph_S(outputs)
+        print("outputs shape is ", outputs.shape)
+        S = self.construct_graph_S_loop(outputs)
 
         return outputs, S
 
@@ -322,6 +323,41 @@ class GraphLearning(nn.Module):
         print(dist.max())
 
         return dist
+
+    def construct_graph_S_loop(self, inputs):
+        """
+        S_{i, j} = \frac{exp(ReLU(a^{T}|x_i - x_j|))}{\sum_{j=1}{n}(ReLU(a^{T}|x_i - x_j|))}
+
+        :param inputs: X \in R^{n \times d}
+        :return: S
+        """
+
+        dist = self.pairwise_distances_func_loop(inputs)
+
+        return dist
+
+    def pairwise_distances_func_loop(self, x):
+        '''
+        Input: x is a Nxd matrix
+               y is an optional Mxd matirx
+        Output: dist is a NxM matrix where dist[i,j] is the square norm between x[i,:] and y[j,:]
+                if y is not given then use 'y=x'.
+        i.e. dist[i,j] = ||x[i,:]-y[j,:]||^2
+        '''
+
+        N = x.size(0)
+        S = torch.zeros((N, N))
+        for i in range(N):
+            x_i = x[i].view(1, -1)
+            # dist_i shape is (1, N, d)
+            dist_i = pairwise_distances_element(x_i, x)
+            # print(i, dist_i.shape)
+            S[i] = F.relu(self.S_linear(dist_i)).squeeze()
+
+        S = torch.softmax(S, dim=-1)
+
+        return S
+
 
 class GLCN(nn.Module):
     def __init__(self, in_channels=3, out_channels=7, ngcn_layers=30,
