@@ -187,17 +187,17 @@ for epoch in range(opt.num_epochs):
     # training
     semi_outputs, v_loss, ce_loss = train(model, all_data, train_target, optimizer, opt.lamda_reg)
 
-    print("Epoch :", epoch, "GLCN Loss :", v_loss.item(), "CE Loss :", ce_loss.item())
+    print("Epoch :", epoch, "GLCN Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
 
     # evaluating
     if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
         train_preds = semi_outputs[:num_labeled]
         train_accuracy = eval(train_preds, train_target)
-        print("Train accuracy :", train_accuracy.item())
+        print("Train accuracy :", train_accuracy.item(), flush=True)
 
         val_preds = semi_outputs[num_labeled:num_valid+num_labeled]
         val_accuracy = eval(val_preds, valid_target)
-        print("Valid accuracy :", val_accuracy.item())
+        print("Valid accuracy :", val_accuracy.item(), flush=True)
 
         if val_accuracy > min_valid_acc:
             min_valid_acc = val_accuracy
@@ -213,4 +213,4 @@ for epoch in range(opt.num_epochs):
 
 test_preds = final_output[num_valid+num_labeled:]
 test_accuracy = eval(test_preds, test_target)
-print("Test accuracy :", test_accuracy.item())
+print("Test accuracy :", test_accuracy.item(), flush=True)
