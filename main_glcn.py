@@ -60,7 +60,7 @@ def train(model, x, y, optimizer, lamda_reg=0.0):
     ce = nn.CrossEntropyLoss()
 
     semi_outputs, loss_GL, S = model(x)
-    print("The learned S is ", torch.sum(S, dim=-1))
+    # print("The learned S is ", torch.sum(S, dim=-1))
     ce_loss = ce(semi_outputs[:num_labeled], y)
     loss = ce_loss + lamda_reg * loss_GL
     optimizer.zero_grad()
