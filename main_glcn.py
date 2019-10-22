@@ -26,6 +26,7 @@ parser.add_argument('--lr', type=float, default=0.1)
 
 parser.add_argument('--in_channels', type=int, default=3)
 parser.add_argument('--out_channels', type=int, default=7)
+parser.add_argument('--topk', type=int, default=10)
 parser.add_argument('--ngcn_layers', type=int, default=30)
 parser.add_argument('--nclass', type=int, default=10)
 parser.add_argument('--gamma_reg', type=float, default=0.01)
@@ -165,7 +166,7 @@ train_target, valid_target, test_target = all_target[:num_labeled], \
                                           all_target[num_valid + num_labeled:, ]
 
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
-             opt.nclass, opt.gamma_reg, opt.dropout).to(opt.device)
+             opt.nclass, opt.gamma_reg, opt.dropout, opt.topk).to(opt.device)
 # model = tocuda(model)
 
 # model.apply(weights_init)

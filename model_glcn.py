@@ -381,11 +381,11 @@ class GraphLearning(nn.Module):
 
 class GLCN(nn.Module):
     def __init__(self, in_channels=3, out_channels=7, ngcn_layers=30,
-                 nclass=10, gamma_reg=0.01, dropout=0.2):
+                 nclass=10, gamma_reg=0.01, dropout=0.2, topk=50):
         super(GLCN, self).__init__()
 
         self.gamma_reg = gamma_reg
-        self.graph_learning = GraphLearning(in_channels, out_channels, top_bn=True)
+        self.graph_learning = GraphLearning(in_channels, out_channels, top_bn=True, topk=topk)
         self.gcn = GCN(out_channels, ngcn_layers, nclass, dropout)
 
     @staticmethod
