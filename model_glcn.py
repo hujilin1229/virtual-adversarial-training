@@ -303,8 +303,8 @@ class GraphLearning(nn.Module):
             outputs.append(output)
 
         outputs = torch.cat(outputs, dim=0)
-        print("outputs shape is ", outputs.shape)
-        S = self.construct_graph_S_loop(outputs).to(inputs.device)
+        # print("outputs shape is ", outputs.shape)
+        S = self.construct_graph_S_loop(outputs)
 
 
         return outputs, S
@@ -348,7 +348,7 @@ class GraphLearning(nn.Module):
         '''
 
         N = x.size(0)
-        # S = torch.zeros((N, N))
+        S = torch.zeros((N, N), device=x.device)
         row_indices = []
         col_indices = []
         values = []
@@ -359,17 +359,19 @@ class GraphLearning(nn.Module):
             # non_neg_dist_i  shape is (1, N)
             non_neg_dist_i = F.relu(self.S_linear(dist_i)).squeeze()
             tmp_values, tmp_indices = torch.topk(non_neg_dist_i, self.topk)
-            row_indices += [i] * self.topk
-            col_indices.append(tmp_indices)
             tmp_values = F.softmax(tmp_values)
-            values.append(tmp_values)
+            S[i, tmp_indices] = tmp_values
 
-        row_indices = torch.tensor(row_indices).long().to(x.device)
-        col_indices = torch.cat(col_indices)
-        values = torch.cat(values)
-        indices = torch.stack([row_indices, col_indices], dim=0)
-        print(indices.shape)
-        S = torch.sparse_coo_tensor(indices, values, (N, N), device=x.device)
+            # row_indices += [i] * self.topk
+            # col_indices.append(tmp_indices)
+            # tmp_values = F.softmax(tmp_values)
+            # values.append(tmp_values)
+
+        # row_indices = torch.tensor(row_indices).long().to(x.device)
+        # col_indices = torch.cat(col_indices)
+        # values = torch.cat(values)
+        # indices = torch.stack([row_indices, col_indices], dim=0)
+        # S = torch.sparse_coo_tensor(indices, values, (N, N), device=x.device)
             # # print(i, dist_i.shape)
             # S[i] = F.relu(self.S_linear(dist_i)).squeeze()
         # S = torch.softmax(S, dim=-1)
@@ -396,17 +398,14 @@ class GLCN(nn.Module):
     def forward(self, inputs):
 
         extract_feature, S = self.graph_learning(inputs)
-        # print("Extracted Feature is ", extract_feature.shape)
-        semi_outputs = self.gcn(extract_feature, S)
-        # print("GCN output is ", semi_outputs.shape)
-
         loss_GL = pairwise_distances(extract_feature)
 
-        S_dense = S.to_dense()
+        # S_dense = S.to_dense()
         # loss_GL = torch.sum(feature_dist, dim=-1)
-        loss_GL = torch.sum(loss_GL * S_dense) + self.gamma_reg*torch.sum(S_dense)
+        loss_GL = torch.sum(loss_GL * S) + self.gamma_reg * torch.sum(S)
+        # print("Extracted Feature is ", extract_feature.shape)
+        semi_outputs = self.gcn(extract_feature, S)
 
-        # loss_GL = GLCN.sparse_dense_mul(S, loss_GL) + self.gamma_reg * torch.sum(S._values())
 
         return semi_outputs, loss_GL, S
 
