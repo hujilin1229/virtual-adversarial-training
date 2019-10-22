@@ -364,7 +364,7 @@ class GraphLearning(nn.Module):
             tmp_values = F.softmax(tmp_values)
             values.append(tmp_values)
 
-        row_indices = torch.tensor(row_indices)
+        row_indices = torch.tensor(row_indices).to(x.device)
         col_indices = torch.cat(col_indices)
         values = torch.cat(values)
         S = torch.sparse.FloatTensor(torch.stack([row_indices, col_indices], dim=1), values, torch.Size([N, N]))
