@@ -367,8 +367,9 @@ class GraphLearning(nn.Module):
         row_indices = torch.tensor(row_indices).long().to(x.device)
         col_indices = torch.cat(col_indices)
         values = torch.cat(values)
-
-        S = torch.sparse_coo_tensor(torch.stack([row_indices, col_indices], dim=1), values, (N, N), device=x.device)
+        indices = torch.stack([row_indices, col_indices], dim=0)
+        print(indices.shape)
+        S = torch.sparse_coo_tensor(indices, values, (N, N), device=x.device)
             # # print(i, dist_i.shape)
             # S[i] = F.relu(self.S_linear(dist_i)).squeeze()
         # S = torch.softmax(S, dim=-1)
