@@ -134,7 +134,16 @@ elif opt.dataset == 'cifar10':
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
         batch_size=100, shuffle=True)
-
+elif opt.dataset == 'mnist':
+    # num_labeled = 1000
+    opt.in_channels = 1
+    train_loader = torch.utils.data.DataLoader(
+        datasets.MNIST(root=opt.dataroot, train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ])),
+        batch_size=100, shuffle=True)
 else:
     raise NotImplementedError
 
