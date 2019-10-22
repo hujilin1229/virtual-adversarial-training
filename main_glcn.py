@@ -54,7 +54,6 @@ def tocuda(x):
         return x.cuda()
     return x
 
-
 def train(model, x, y, optimizer, lamda_reg=0.0):
 
     model.train()
@@ -157,26 +156,71 @@ for (data, target) in train_loader:
 train_data = torch.cat(train_data, dim=0)
 train_target = torch.cat(train_target, dim=0)
 
-print(opt.dataset)
-print("Total number of training data is ", train_data.shape)
+print(f"Total number of dataset {opt.dataset} is {train_data.shape}")
 
+unique_labels = np.unique(train_target)
+print("Unique Labels: ", unique_labels)
+n_class = len(unique_labels)
+nSamples_per_class_train = 100
+nSamples_per_class_val = 100
+nSamples_per_unlabel = 1000 - nSamples_per_class_train - nSamples_per_class_val
+
+select_train_data = []
+select_train_label = []
+select_val_data = []
+select_val_label = []
+
+unlabeled_train_data = []
+unlabeled_train_label = []
+
+for label in unique_labels:
+    label_mask = (train_target == label)
+    current_label_X = train_data[label_mask]
+    current_label_y = train_target[label_mask]
+    select_train_data.append(current_label_X[:nSamples_per_class_train])
+    select_train_label.append(current_label_y[:nSamples_per_class_train])
+    select_val_data.append(current_label_X[nSamples_per_class_train:nSamples_per_class_train+nSamples_per_class_val])
+    select_val_label.append(current_label_y[nSamples_per_class_train:nSamples_per_class_train + nSamples_per_class_val])
+
+    unlabeled_train_data.append(current_label_X[nSamples_per_class_train + nSamples_per_class_val:1000])
+    unlabeled_train_label.append(current_label_y[nSamples_per_class_train + nSamples_per_class_val:1000])
+
+train_data = torch.cat(select_train_data, dim=0).to(opt.device)
+train_target = torch.cat(select_train_label, dim=0).to(opt.device)
+valid_data = torch.cat(select_val_data, dim=0).to(opt.device)
+valid_target = torch.cat(select_val_label, dim=0).to(opt.device)
+test_data = torch.cat(unlabeled_train_data, dim=0).to(opt.device)
+test_target = torch.cat(unlabeled_train_label, dim=0).to(opt.device)
+# random shuffle the data
+train_random_ind = np.random.shuffle(np.arange(nSamples_per_class_train * n_class))
+val_random_ind = np.random.shuffle(np.arange(nSamples_per_class_val * n_class))
+test_random_ind = np.random.shuffle(np.arange(nSamples_per_unlabel * n_class))
+
+train_data = train_data[train_random_ind]
+train_target = train_target[train_random_ind]
+
+valid_data = valid_data[val_random_ind]
+valid_target = valid_target[val_random_ind]
+
+test_data = test_data[test_random_ind]
+test_target = test_target[test_random_ind]
+
+all_data = torch.cat([train_data, valid_data, test_data])
 # all_data = tocuda(train_data[:10000])
 # all_target = tocuda(train_target[:10000])
-
-all_data = train_data[:10000].to(opt.device)
-all_target = train_target[:10000].to(opt.device)
-
-
-train_data, valid_data, test_data = all_data[:num_labeled, ], \
-                                    all_data[num_labeled:num_valid+num_labeled, ], \
-                                    all_data[num_valid+num_labeled:, ]
-train_target, valid_target, test_target = all_target[:num_labeled], \
-                                          all_target[num_labeled:num_valid + num_labeled, ], \
-                                          all_target[num_valid + num_labeled:, ]
+# all_data = train_data[:10000].to(opt.device)
+# all_target = train_target[:10000].to(opt.device)
+#
+#
+# train_data, valid_data, test_data = all_data[:num_labeled, ], \
+#                                     all_data[num_labeled:num_valid+num_labeled, ], \
+#                                     all_data[num_valid+num_labeled:, ]
+# train_target, valid_target, test_target = all_target[:num_labeled], \
+#                                           all_target[num_labeled:num_valid + num_labeled, ], \
+#                                           all_target[num_valid + num_labeled:, ]
 
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
              opt.nclass, opt.gamma_reg, opt.dropout, opt.topk).to(opt.device)
-# model = tocuda(model)
 
 # model.apply(weights_init)
 init_all(model, init_funcs)
