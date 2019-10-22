@@ -303,7 +303,7 @@ class GraphLearning(nn.Module):
 
         outputs = torch.cat(outputs, dim=0)
         print("outputs shape is ", outputs.shape)
-        S = self.construct_graph_S_loop(outputs)
+        S = self.construct_graph_S_loop(outputs).to(inputs.device)
 
         return outputs, S
 
