@@ -226,6 +226,7 @@ class GCN(nn.Module):
         x = F.relu(self.gc1(x, adj))
         x = F.dropout(x, self.dropout, training=self.training)
         x = self.gc2(x, adj)
+
         return F.log_softmax(x, dim=1)
 
 

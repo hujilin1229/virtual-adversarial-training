@@ -57,11 +57,13 @@ def tocuda(x):
 def train(model, x, y, optimizer, lamda_reg=0.0):
 
     model.train()
-    ce = nn.CrossEntropyLoss()
+    # ce = nn.CrossEntropyLoss()
+    # semi_outputs have been log_softmax, so only NLLLoss() here
+    nll_loss = nn.NLLLoss()
 
     semi_outputs, loss_GL, S = model(x)
     # print("The learned S is ", torch.sum(S, dim=-1))
-    ce_loss = ce(semi_outputs[:num_labeled], y)
+    ce_loss = nll_loss(semi_outputs[:num_labeled], y)
     loss = ce_loss + lamda_reg * loss_GL
     optimizer.zero_grad()
     loss.backward()
