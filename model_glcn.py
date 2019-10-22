@@ -231,12 +231,13 @@ class GCN(nn.Module):
 
 class GraphLearning(nn.Module):
     def __init__(self, in_channels, out_channels, top_bn=True,
-                 batch_size=100, total_num=10000):
+                 batch_size=100, total_num=10000, topk=50):
 
         super(GraphLearning, self).__init__()
         self.top_bn = top_bn
         self.batch_size = batch_size
         self.total_num = total_num
+        self.topk = topk
 
         self.main = nn.Sequential(
             nn.Conv2d(in_channels, 32, 3, 1, 1, bias=False),
@@ -347,15 +348,26 @@ class GraphLearning(nn.Module):
         '''
 
         N = x.size(0)
-        S = torch.zeros((N, N))
+        # S = torch.zeros((N, N))
+        row_indices = []
+        col_indices = []
+        values = []
         for i in range(N):
             x_i = x[i].view(1, -1)
             # dist_i shape is (1, N, d)
             dist_i = pairwise_distances_element(x_i, x)
-            # print(i, dist_i.shape)
-            S[i] = F.relu(self.S_linear(dist_i)).squeeze()
+            # non_neg_dist_i  shape is (1, N)
+            non_neg_dist_i = F.relu(self.S_linear(dist_i)).squeeze()
+            tmp_values, tmp_indices = torch.topk(non_neg_dist_i, self.topk)
+            row_indices += [i] * self.topk
+            col_indices.append(tmp_indices)
+            tmp_values = F.softmax(tmp_values)
+            values.append(tmp_values)
 
-        S = torch.softmax(S, dim=-1)
+        S = torch.sparse.FloatTensor(torch.stack([row_indices, col_indices], dim=1), values, torch.Size([N, N]))
+            # # print(i, dist_i.shape)
+            # S[i] = F.relu(self.S_linear(dist_i)).squeeze()
+        # S = torch.softmax(S, dim=-1)
 
         return S
 
