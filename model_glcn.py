@@ -298,7 +298,7 @@ class GraphLearning(nn.Module):
         for start_idx in range(0, self.total_num, self.batch_size):
             # print(start_idx)
             # output = self.main(inputs[start_idx:start_idx+self.batch_size])
-            output = self.linear(inputs.view(self.batch_size, -1))
+            output = self.linear(inputs[start_idx:start_idx+self.batch_size].view(self.batch_size, -1))
             if self.top_bn:
                 output = self.bn(output)
             outputs.append(output)
