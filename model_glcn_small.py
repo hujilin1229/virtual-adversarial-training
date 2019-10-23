@@ -305,6 +305,7 @@ class GraphLearning(nn.Module):
 
         outputs = torch.cat(outputs, dim=0)
         # print("outputs shape is ", outputs.shape)
+
         S = self.construct_graph_S_loop(outputs)
 
 
@@ -350,9 +351,6 @@ class GraphLearning(nn.Module):
 
         N = x.size(0)
         S = torch.zeros((N, N), device=x.device)
-        row_indices = []
-        col_indices = []
-        values = []
         for i in range(N):
             x_i = x[i].view(1, -1)
             # dist_i shape is (1, N, d)
@@ -362,20 +360,6 @@ class GraphLearning(nn.Module):
             tmp_values, tmp_indices = torch.topk(non_neg_dist_i, self.topk)
             tmp_values = F.softmax(tmp_values)
             S[i, tmp_indices] = tmp_values
-
-            # row_indices += [i] * self.topk
-            # col_indices.append(tmp_indices)
-            # tmp_values = F.softmax(tmp_values)
-            # values.append(tmp_values)
-
-        # row_indices = torch.tensor(row_indices).long().to(x.device)
-        # col_indices = torch.cat(col_indices)
-        # values = torch.cat(values)
-        # indices = torch.stack([row_indices, col_indices], dim=0)
-        # S = torch.sparse_coo_tensor(indices, values, (N, N), device=x.device)
-            # # print(i, dist_i.shape)
-            # S[i] = F.relu(self.S_linear(dist_i)).squeeze()
-        # S = torch.softmax(S, dim=-1)
 
         return S
 
