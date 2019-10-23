@@ -359,6 +359,7 @@ class GraphLearning(nn.Module):
             dist_i = pairwise_distances_element(x_i, x)
             # non_neg_dist_i  shape is (1, N)
             non_neg_dist_i = F.relu(self.S_linear(dist_i)).squeeze() * -1
+            print(non_neg_dist_i)
             tmp_values, tmp_indices = torch.topk(non_neg_dist_i, self.topk)
             tmp_values = F.softmax(tmp_values)
             S[i, tmp_indices] = tmp_values
