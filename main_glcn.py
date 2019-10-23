@@ -212,7 +212,7 @@ test_data = test_data[test_random_ind]
 test_target = test_target[test_random_ind]
 
 all_data = torch.cat([train_data, valid_data, test_data], dim=0)
-all_data = torch.reshape(all_data, (1000*n_class, -1))
+# all_data = torch.reshape(all_data, (1000*n_class, -1))
 
 path_best_model = f'./saved_models/{opt.dataset}/glcn_best_models'
 if not os.path.exists(os.path.dirname(path_best_model)):
