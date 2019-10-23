@@ -31,7 +31,7 @@ parser.add_argument('--ngcn_layers', type=int, default=30)
 parser.add_argument('--nclass', type=int, default=10)
 parser.add_argument('--gamma_reg', type=float, default=0.01)
 parser.add_argument('--lamda_reg', type=float, default=0.00001)
-parser.add_argument('--dropout', type=float, default=0.2)
+parser.add_argument('--dropout', type=float, default=0.0)
 parser.add_argument('--cuda', dest='cuda', default='0', type=str)
 parser.add_argument('--mode', default='gpu', help='cpu/gpu')
 parser.add_argument('--train', default=True, action='store_false')
@@ -69,6 +69,9 @@ def train(model, x, y, optimizer, lamda_reg=0.0):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+
+    print("Adj Matrix....")
+    print(S[S > 0])
 
     return semi_outputs, loss, ce_loss
 
@@ -255,6 +258,7 @@ if opt.train:
             val_accuracy = eval(val_preds, valid_target)
             print("Valid accuracy :", val_accuracy.item(), flush=True)
 
+            print(semi_outputs.shape)
             if val_accuracy > min_valid_acc:
                 min_valid_acc = val_accuracy
                 no_increase_step = 0
