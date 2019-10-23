@@ -70,6 +70,8 @@ def train(model, x, y, optimizer, lamda_reg=0.0):
     loss.backward()
     optimizer.step()
 
+    print("First Row of X")
+    print(x[0])
     print("Adj Matrix....")
     print(S[S > 0])
 
