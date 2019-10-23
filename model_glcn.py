@@ -378,6 +378,8 @@ class GraphLearning(nn.Module):
             # S[i] = F.relu(self.S_linear(dist_i)).squeeze()
         # S = torch.softmax(S, dim=-1)
 
+        print("S require grad ", S.requires_grad)
+
         return S
 
 
