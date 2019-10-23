@@ -128,7 +128,7 @@ if opt.dataset == 'svhn':
         datasets.SVHN(root=opt.dataroot, split='train', download=True,
                       transform=transforms.Compose([
                           transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                          transforms.Normalize((0.4377, 0.4438, 0.4728), (0.2023, 0.1994, 0.2010))
                       ])),
         batch_size=100, shuffle=True)
 
@@ -138,7 +138,7 @@ elif opt.dataset == 'cifar10':
         datasets.CIFAR10(root=opt.dataroot, train=True, download=True,
                       transform=transforms.Compose([
                           transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                          transforms.Normalize((0.4914, 0.4822, 0.4465), (0.5, 0.5, 0.5))
                       ])),
         batch_size=100, shuffle=True)
 elif opt.dataset == 'mnist':
