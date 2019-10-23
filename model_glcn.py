@@ -240,54 +240,54 @@ class GraphLearning(nn.Module):
         self.total_num = total_num
         self.topk = topk
 
-        self.main = nn.Sequential(
-            nn.Conv2d(in_channels, 32, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(0.1),
+        # self.main = nn.Sequential(
+        #     nn.Conv2d(in_channels, 32, 3, 1, 1, bias=False),
+        #     nn.BatchNorm2d(32),
+        #     nn.LeakyReLU(0.1),
+        #
+        #     nn.Conv2d(32, 32, 3, 1, 1, bias=False),
+        #     nn.BatchNorm2d(64),
+        #     nn.LeakyReLU(0.1),
+        #
+        #     #
+        #     # nn.Conv2d(128, 128, 3, 1, 1, bias=False),
+        #     # nn.BatchNorm2d(128),
+        #     # nn.LeakyReLU(0.1),
+        #     #
+        #     # nn.MaxPool2d(2, 2, 1),
+        #     # nn.Dropout2d(),
+        #     #
+        #     # nn.Conv2d(128, 256, 3, 1, 1, bias=False),
+        #     # nn.BatchNorm2d(256),
+        #     # nn.LeakyReLU(0.1),
+        #     #
+        #     # nn.Conv2d(256, 256, 3, 1, 1, bias=False),
+        #     # nn.BatchNorm2d(256),
+        #     # nn.LeakyReLU(0.1),
+        #     #
+        #     # nn.Conv2d(256, 256, 3, 1, 1, bias=False),
+        #     # nn.BatchNorm2d(256),
+        #     # nn.LeakyReLU(0.1),
+        #     #
+        #     # nn.MaxPool2d(2, 2, 1),
+        #     # nn.Dropout2d(),
+        #     #
+        #     # nn.Conv2d(256, 512, 3, 1, 0, bias=False),
+        #     # nn.BatchNorm2d(512),
+        #     # nn.LeakyReLU(0.1),
+        #     #
+        #     # nn.Conv2d(512, 256, 1, 1, 1, bias=False),
+        #     # nn.BatchNorm2d(256),
+        #     # nn.LeakyReLU(0.1),
+        #     #
+        #     # nn.Conv2d(256, 128, 1, 1, 1, bias=False),
+        #     # nn.BatchNorm2d(128),
+        #     # nn.LeakyReLU(0.1),
+        #
+        #     # nn.AdaptiveAvgPool2d((1, 1))
+        # )
 
-            nn.Conv2d(32, 64, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.1),
-
-            #
-            # nn.Conv2d(128, 128, 3, 1, 1, bias=False),
-            # nn.BatchNorm2d(128),
-            # nn.LeakyReLU(0.1),
-            #
-            # nn.MaxPool2d(2, 2, 1),
-            # nn.Dropout2d(),
-            #
-            # nn.Conv2d(128, 256, 3, 1, 1, bias=False),
-            # nn.BatchNorm2d(256),
-            # nn.LeakyReLU(0.1),
-            #
-            # nn.Conv2d(256, 256, 3, 1, 1, bias=False),
-            # nn.BatchNorm2d(256),
-            # nn.LeakyReLU(0.1),
-            #
-            # nn.Conv2d(256, 256, 3, 1, 1, bias=False),
-            # nn.BatchNorm2d(256),
-            # nn.LeakyReLU(0.1),
-            #
-            # nn.MaxPool2d(2, 2, 1),
-            # nn.Dropout2d(),
-            #
-            # nn.Conv2d(256, 512, 3, 1, 0, bias=False),
-            # nn.BatchNorm2d(512),
-            # nn.LeakyReLU(0.1),
-            #
-            # nn.Conv2d(512, 256, 1, 1, 1, bias=False),
-            # nn.BatchNorm2d(256),
-            # nn.LeakyReLU(0.1),
-            #
-            # nn.Conv2d(256, 128, 1, 1, 1, bias=False),
-            # nn.BatchNorm2d(128),
-            # nn.LeakyReLU(0.1),
-
-            nn.AdaptiveAvgPool2d((1, 1))
-        )
-
-        self.linear = nn.Linear(64, out_channels)
+        self.linear = nn.Linear(32*32*in_channels, out_channels)
         self.bn = nn.BatchNorm1d(out_channels)
         # linear transform to 1
         self.S_linear = nn.Linear(out_channels, 1)

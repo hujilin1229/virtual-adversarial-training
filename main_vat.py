@@ -15,7 +15,6 @@ eval_freq = 5
 lr = 0.001
 cuda_device = "0"
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True, help='cifar10 | svhn')
 parser.add_argument('--dataroot', required=True, help='path to dataset')
@@ -157,12 +156,29 @@ for label in unique_labels:
     unlabeled_train_label.append(current_label_y[nSamples_per_class_train + nSamples_per_class_val:1000])
 
 train_data = torch.cat(select_train_data, dim=0)
-labeled_train = torch.cat(select_train_label, dim=0)
+train_target = torch.cat(select_train_label, dim=0)
 valid_data = torch.cat(select_val_data, dim=0)
-labeled_val = torch.cat(select_val_label, dim=0)
+valid_target = torch.cat(select_val_label, dim=0)
+test_data = torch.cat(unlabeled_train_data, dim=0)
+test_target = torch.cat(unlabeled_train_label, dim=0)
+# random shuffle the data
+train_random_ind = np.arange(nSamples_per_class_train * n_class)
+val_random_ind = np.arange(nSamples_per_class_val * n_class)
+test_random_ind = np.arange(nSamples_per_unlabel * n_class)
+np.random.shuffle(train_random_ind)
+np.random.shuffle(val_random_ind)
+np.random.shuffle(test_random_ind)
 
-unlabeled_train_data = torch.cat(unlabeled_train_data, dim=0)
-unlabeled_train_label = torch.cat(unlabeled_train_label, dim=0)
+train_data = train_data[train_random_ind]
+train_target = train_target[train_random_ind]
+
+valid_data = valid_data[val_random_ind]
+valid_target = valid_target[val_random_ind]
+
+unlabeled_train_data = test_data[test_random_ind]
+unlabeled_train_label = test_target[test_random_ind]
+
+all_data = torch.cat([train_data, valid_data, test_data], dim=0)
 
 # valid_data, train_data = train_data[:num_valid, ], train_data[num_valid:, ]
 # valid_target, train_target = train_target[:num_valid], train_target[num_valid:, ]
@@ -194,9 +210,9 @@ if opt.train:
             optimizer.betas = (0.5, 0.999)
 
         for i in range(num_iter_per_epoch):
-            batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
+            batch_indices = torch.LongTensor(np.random.choice(train_target.size()[0], batch_size, replace=False))
             x = train_data[batch_indices]
-            y = labeled_train[batch_indices]
+            y = train_target[batch_indices]
             batch_indices_unlabeled = torch.LongTensor(np.random.choice(
                 unlabeled_train_data.size()[0], unlabeled_batch_size, replace=False))
 
@@ -217,7 +233,7 @@ if opt.train:
             counter = 0
             for i in range(0, valid_data.shape[0], eval_batch_size):
                 data = valid_data[i:i + eval_batch_size]
-                target = labeled_val[i:i + eval_batch_size]
+                target = valid_target[i:i + eval_batch_size]
                 acc, _ = eval(model.eval(), Variable(tocuda(data)), Variable(tocuda(target)))
                 val_accuracy += eval_batch_size * acc
                 counter += eval_batch_size
@@ -262,8 +278,8 @@ print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
 # compose all the data and label together
 test_pred = torch.cat(test_pred, dim=0).cpu()
 all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
-all_target = torch.cat([labeled_train, labeled_val, unlabeled_train_label], dim=0)
-construct_graph_label = torch.cat([labeled_train, labeled_val, test_pred], dim=0)
+all_target = torch.cat([train_target, valid_target, unlabeled_train_label], dim=0)
+construct_graph_label = torch.cat([train_target, valid_target, test_pred], dim=0)
 all_data = all_data.cpu().numpy()
 all_target = all_target.cpu().numpy()
 construct_graph_label = construct_graph_label.cpu().numpy()
@@ -286,8 +302,6 @@ for i in range(N):
     row_list += [i] * len(same_label_ind)
     connected_labels = construct_graph_label[same_label_ind]
     connected_gt_labels = all_target[same_label_ind]
-    # print(connected_labels)
-    # print(connected_gt_labels)
     correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
     connect_sum += len(same_label_ind)
 
