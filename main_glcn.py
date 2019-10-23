@@ -57,7 +57,8 @@ def tocuda(x):
 def train(model, x, y, optimizer, lamda_reg=0.0):
 
     model.train()
-    # ce = nn.CrossEntropyLoss()
+    # ce = nn.CrossEntropyLoss() # This criterion combines nn.LogSoftmax() and nn.NLLLoss() in one single class.
+
     # semi_outputs have been log_softmax, so only NLLLoss() here
     nll_loss = nn.NLLLoss()
 
@@ -194,10 +195,17 @@ valid_target = torch.cat(select_val_label, dim=0).to(opt.device)
 test_data = torch.cat(unlabeled_train_data, dim=0).to(opt.device)
 test_target = torch.cat(unlabeled_train_label, dim=0).to(opt.device)
 # random shuffle the data
-train_random_ind = np.random.shuffle(np.arange(nSamples_per_class_train * n_class))
-val_random_ind = np.random.shuffle(np.arange(nSamples_per_class_val * n_class))
-test_random_ind = np.random.shuffle(np.arange(nSamples_per_unlabel * n_class))
+train_random_ind = np.arange(nSamples_per_class_train * n_class)
+val_random_ind = np.arange(nSamples_per_class_val * n_class)
+test_random_ind = np.arange(nSamples_per_unlabel * n_class)
+np.random.shuffle(train_random_ind)
+np.random.shuffle(val_random_ind)
+np.random.shuffle(test_random_ind)
 
+# print(nSamples_per_class_train)
+# print(n_class)
+# print(train_data.shape)
+# print(train_random_ind)
 train_data = train_data[train_random_ind]
 train_target = train_target[train_random_ind]
 
@@ -207,7 +215,7 @@ valid_target = valid_target[val_random_ind]
 test_data = test_data[test_random_ind]
 test_target = test_target[test_random_ind]
 
-all_data = torch.cat([train_data, valid_data, test_data])
+all_data = torch.cat([train_data, valid_data, test_data], dim=0)
 # all_data = tocuda(train_data[:10000])
 # all_target = tocuda(train_target[:10000])
 # all_data = train_data[:10000].to(opt.device)
