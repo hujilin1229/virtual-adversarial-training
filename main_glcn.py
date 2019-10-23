@@ -34,6 +34,7 @@ parser.add_argument('--lamda_reg', type=float, default=0.00001)
 parser.add_argument('--dropout', type=float, default=0.2)
 parser.add_argument('--cuda', dest='cuda', default='0', type=str)
 parser.add_argument('--mode', default='gpu', help='cpu/gpu')
+parser.add_argument('--train', default=True, action='store_false')
 
 opt = parser.parse_args()
 
@@ -55,7 +56,6 @@ def tocuda(x):
     return x
 
 def train(model, x, y, optimizer, lamda_reg=0.0):
-
     model.train()
     # ce = nn.CrossEntropyLoss() # This criterion combines nn.LogSoftmax() and nn.NLLLoss() in one single class.
 
@@ -202,10 +202,6 @@ np.random.shuffle(train_random_ind)
 np.random.shuffle(val_random_ind)
 np.random.shuffle(test_random_ind)
 
-# print(nSamples_per_class_train)
-# print(n_class)
-# print(train_data.shape)
-# print(train_random_ind)
 train_data = train_data[train_random_ind]
 train_target = train_target[train_random_ind]
 
@@ -216,18 +212,11 @@ test_data = test_data[test_random_ind]
 test_target = test_target[test_random_ind]
 
 all_data = torch.cat([train_data, valid_data, test_data], dim=0)
-# all_data = tocuda(train_data[:10000])
-# all_target = tocuda(train_target[:10000])
-# all_data = train_data[:10000].to(opt.device)
-# all_target = train_target[:10000].to(opt.device)
-#
-#
-# train_data, valid_data, test_data = all_data[:num_labeled, ], \
-#                                     all_data[num_labeled:num_valid+num_labeled, ], \
-#                                     all_data[num_valid+num_labeled:, ]
-# train_target, valid_target, test_target = all_target[:num_labeled], \
-#                                           all_target[num_labeled:num_valid + num_labeled, ], \
-#                                           all_target[num_valid + num_labeled:, ]
+
+
+path_best_model = f'./saved_models/{opt.dataset}/glcn_best_models'
+if not os.path.exists(os.path.dirname(path_best_model)):
+    os.mkdir(os.path.dirname(path_best_model))
 
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
              opt.nclass, opt.gamma_reg, opt.dropout, opt.topk).to(opt.device)
@@ -241,39 +230,50 @@ no_increase_step = 0
 
 final_output = None
 # train the network
-for epoch in range(opt.num_epochs):
 
-    if epoch > opt.epoch_decay_start:
-        decayed_lr = (opt.num_epochs - epoch) * opt.lr / (opt.num_epochs - opt.epoch_decay_start)
-        optimizer.lr = decayed_lr
-        optimizer.betas = (0.5, 0.999)
+if opt.train:
+    for epoch in range(opt.num_epochs):
 
-    # training
-    semi_outputs, v_loss, ce_loss = train(model, all_data, train_target, optimizer, opt.lamda_reg)
+        if epoch > opt.epoch_decay_start:
+            decayed_lr = (opt.num_epochs - epoch) * opt.lr / (opt.num_epochs - opt.epoch_decay_start)
+            optimizer.lr = decayed_lr
+            optimizer.betas = (0.5, 0.999)
 
-    print("Epoch :", epoch, "GLCN Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
+        # training
+        semi_outputs, v_loss, ce_loss = train(model, all_data, train_target, optimizer, opt.lamda_reg)
 
-    # evaluating
-    if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
-        train_preds = semi_outputs[:num_labeled]
-        train_accuracy = eval(train_preds, train_target)
-        print("Train accuracy :", train_accuracy.item(), flush=True)
+        print("Epoch :", epoch, "GLCN Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
 
-        val_preds = semi_outputs[num_labeled:num_valid+num_labeled]
-        val_accuracy = eval(val_preds, valid_target)
-        print("Valid accuracy :", val_accuracy.item(), flush=True)
+        # evaluating
+        if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
+            train_preds = semi_outputs[:num_labeled]
+            train_accuracy = eval(train_preds, train_target)
+            print("Train accuracy :", train_accuracy.item(), flush=True)
 
-        if val_accuracy > min_valid_acc:
-            min_valid_acc = val_accuracy
-            no_increase_step = 0
-        else:
-            no_increase_step += 1
+            val_preds = semi_outputs[num_labeled:num_valid+num_labeled]
+            val_accuracy = eval(val_preds, valid_target)
+            print("Valid accuracy :", val_accuracy.item(), flush=True)
 
-        if no_increase_step == 100:
-            final_output = semi_outputs
-            break
+            if val_accuracy > min_valid_acc:
+                min_valid_acc = val_accuracy
+                no_increase_step = 0
+                torch.save(model.state_dict(), path_best_model)
+            else:
+                no_increase_step += 1
 
-    final_output = semi_outputs
+            if no_increase_step == 100:
+                final_output = semi_outputs
+                break
+
+        final_output = semi_outputs
+
+if os.path.exists(path_best_model):
+    # original saved file with DataParallel
+    state_dict = torch.load(path_best_model)
+    model.load_state_dict(state_dict)
+
+model.eval()
+final_output, loss_GL, S = model(all_data)
 
 test_preds = final_output[num_valid+num_labeled:]
 test_accuracy = eval(test_preds, test_target)
