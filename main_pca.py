@@ -6,6 +6,8 @@ from model_glcn import GLCN
 from utils import *
 import os
 import torch
+from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
 
 num_labeled = 1000
 num_valid = 1000
@@ -128,7 +130,7 @@ if opt.dataset == 'svhn':
         datasets.SVHN(root=opt.dataroot, split='train', download=True,
                       transform=transforms.Compose([
                           transforms.ToTensor(),
-                          transforms.Normalize((0.4377, 0.4438, 0.4728), (0.1980, 0.2010, 0.1970))
+                          #transforms.Normalize((0.4377, 0.4438, 0.4728), (0.1980, 0.2010, 0.1970))
                       ])),
         batch_size=100, shuffle=True)
 
@@ -138,7 +140,7 @@ elif opt.dataset == 'cifar10':
         datasets.CIFAR10(root=opt.dataroot, train=True, download=True,
                       transform=transforms.Compose([
                           transforms.ToTensor(),
-                          transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                          #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                       ])),
         batch_size=100, shuffle=True)
 elif opt.dataset == 'mnist':
@@ -148,7 +150,7 @@ elif opt.dataset == 'mnist':
         datasets.MNIST(root=opt.dataroot, train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
+                           #transforms.Normalize((0.1307,), (0.3081,))
                        ])),
         batch_size=100, shuffle=True)
 else:
@@ -218,6 +220,27 @@ test_target = test_target[test_random_ind]
 
 all_data = torch.cat([train_data, valid_data, test_data], dim=0)
 all_data = torch.reshape(all_data, (1000*n_class, -1))
+all_target = torch.cat([train_target, valid_target, test_target], dim=0)
+
+pca = PCA(n_components=0.95, whiten=True)
+all_data = all_data.cpu().numpy()
+all_target = all_target.cpu().numpy()
+pca.fit(all_data)
+train_data = pca.transform(all_data)
+print("The PCA fitted data is ", train_data.shape)
+nbrs = NearestNeighbors(n_neighbors=10, algorithm='ball_tree').fit(train_data)
+distances, indices = nbrs.kneighbors(train_data)
+N = train_data.shape[0]
+
+correct_connect_sum = 0
+connect_sum = 0
+for i in range(N):
+    label_i = all_target[i]
+    nn_labels = all_target[indices[i]]
+    correct_connect_sum += np.sum(nn_labels == label_i)
+    connect_sum += len(indices[i])
+
+print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
 
 print(all_data.shape)
 path_best_model = f'./saved_models/{opt.dataset}/glcn_best_models'
