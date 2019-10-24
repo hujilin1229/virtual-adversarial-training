@@ -224,6 +224,7 @@ path_best_model = f'./saved_models/{opt.dataset}/glcn_best_models'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
+opt.in_channels = all_data.shape[1]
 model = GLCN(opt.in_channels, opt.out_channels, opt.ngcn_layers,
              opt.nclass, opt.gamma_reg, opt.dropout, opt.topk).to(opt.device)
 

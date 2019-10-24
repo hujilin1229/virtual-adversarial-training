@@ -287,7 +287,7 @@ class GraphLearning(nn.Module):
         #     # nn.AdaptiveAvgPool2d((1, 1))
         # )
 
-        self.linear = nn.Linear(32*32*in_channels, out_channels)
+        self.linear = nn.Linear(in_channels, out_channels)
         self.bn = nn.BatchNorm1d(out_channels)
         # linear transform to 1
         self.S_linear = nn.Linear(out_channels, 1)
