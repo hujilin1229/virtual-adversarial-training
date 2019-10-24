@@ -55,9 +55,10 @@ class VAT(nn.Module):
             self.linear = nn.Linear(128, 10)
             self.bn = nn.BatchNorm1d(10)
 
-      def forward(self, input):
+      def forward(self, input, featmap_only=False):
             output = self.main(input)
-            output = self.linear(output.view(input.size()[0], -1))
-            if self.top_bn:
-                  output = self.bn(output)
+            if not featmap_only:
+                  output = self.linear(output.view(input.size()[0], -1))
+                  if self.top_bn:
+                        output = self.bn(output)
             return output
