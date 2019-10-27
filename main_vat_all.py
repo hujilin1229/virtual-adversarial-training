@@ -158,7 +158,7 @@ model = tocuda(VAT(opt.top_bn, in_channels))
 model.apply(weights_init)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
-path_best_model = f'./saved_models/{opt.dataset}/test_model_vat_all_{opt.num_labeled}'
+path_best_model = f'./saved_models/{opt.dataset}/test_model_{opt.method}_all_{opt.num_labeled}'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
