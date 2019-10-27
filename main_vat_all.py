@@ -162,6 +162,11 @@ path_best_model = f'./saved_models/{opt.dataset}/test_model_{opt.method}_all_{op
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
+if os.path.exists(path_best_model):
+    # original saved file with DataParallel
+    state_dict = torch.load(path_best_model)
+    model.load_state_dict(state_dict)
+
 # train the network
 for epoch in range(opt.num_epochs):
     if epoch > opt.epoch_decay_start:
