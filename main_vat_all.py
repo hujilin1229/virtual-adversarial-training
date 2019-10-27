@@ -164,7 +164,6 @@ if not os.path.exists(os.path.dirname(path_best_model)):
 
 # train the network
 for epoch in range(opt.num_epochs):
-
     if epoch > opt.epoch_decay_start:
         decayed_lr = (opt.num_epochs - epoch) * lr / (opt.num_epochs - opt.epoch_decay_start)
         optimizer.lr = decayed_lr

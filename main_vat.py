@@ -26,7 +26,7 @@ parser.add_argument('--epsilon', type=float, default=2.5)
 parser.add_argument('--top_bn', type=bool, default=True)
 parser.add_argument('--method', default='vat')
 parser.add_argument('--train', default=True, action='store_false')
-
+parser.add_argument('--save_data', default=False, action='store_true')
 opt = parser.parse_args()
 
 os.environ["CUDA_VISIBLE_DEVICES"] = cuda_device
@@ -275,56 +275,57 @@ for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):
 
 print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
 
-# write the resulted data
-# compose all the data and label together
-test_pred = torch.cat(test_pred, dim=0).cpu()
-all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
-all_target = torch.cat([train_target, valid_target, unlabeled_train_label], dim=0)
-construct_graph_label = torch.cat([train_target, valid_target, test_pred], dim=0)
-all_data = all_data.cpu().numpy()
-all_target = all_target.cpu().numpy()
-construct_graph_label = construct_graph_label.cpu().numpy()
-N = all_data.shape[0]
-num_labeled = train_data.shape[0]
-num_valid = valid_data.shape[0]
+if opt.save_data:
+    # write the resulted data
+    # compose all the data and label together
+    test_pred = torch.cat(test_pred, dim=0).cpu()
+    all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
+    all_target = torch.cat([train_target, valid_target, unlabeled_train_label], dim=0)
+    construct_graph_label = torch.cat([train_target, valid_target, test_pred], dim=0)
+    all_data = all_data.cpu().numpy()
+    all_target = all_target.cpu().numpy()
+    construct_graph_label = construct_graph_label.cpu().numpy()
+    N = all_data.shape[0]
+    num_labeled = train_data.shape[0]
+    num_valid = valid_data.shape[0]
 
-col_list = []
-row_list = []
-correct_connect_sum = 0
-connect_sum = 0
-K = 10
-for i in range(N):
-    label_i = construct_graph_label[i]
-    same_label_ind = np.arange(N)[construct_graph_label==label_i]
-    same_label_ind = np.random.choice(same_label_ind, K, replace=False)
-    # print(i, same_label_ind)
+    col_list = []
+    row_list = []
+    correct_connect_sum = 0
+    connect_sum = 0
+    K = 10
+    for i in range(N):
+        label_i = construct_graph_label[i]
+        same_label_ind = np.arange(N)[construct_graph_label==label_i]
+        same_label_ind = np.random.choice(same_label_ind, K, replace=False)
+        # print(i, same_label_ind)
 
-    col_list += same_label_ind.tolist()
-    row_list += [i] * len(same_label_ind)
-    connected_labels = construct_graph_label[same_label_ind]
-    connected_gt_labels = all_target[same_label_ind]
-    correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
-    connect_sum += len(same_label_ind)
+        col_list += same_label_ind.tolist()
+        row_list += [i] * len(same_label_ind)
+        connected_labels = construct_graph_label[same_label_ind]
+        connected_gt_labels = all_target[same_label_ind]
+        correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
+        connect_sum += len(same_label_ind)
 
-print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+    print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
 
-dist_list = [1] * len(col_list)
-W = scipy.sparse.coo_matrix((dist_list, (row_list, col_list)), shape=(N, N))
-# No self-connections.
-W.setdiag(0)
-# Non-directed graph.
-bigger = W.T > W
-W = W - W.multiply(bigger) + W.T.multiply(bigger)
-assert W.nnz % 2 == 0
-assert np.abs(W - W.T).mean() < 1e-10
+    dist_list = [1] * len(col_list)
+    W = scipy.sparse.coo_matrix((dist_list, (row_list, col_list)), shape=(N, N))
+    # No self-connections.
+    W.setdiag(0)
+    # Non-directed graph.
+    bigger = W.T > W
+    W = W - W.multiply(bigger) + W.T.multiply(bigger)
+    assert W.nnz % 2 == 0
+    assert np.abs(W - W.T).mean() < 1e-10
 
-data_path = f'./data/{opt.dataset}/'
-if not os.path.exists(os.path.dirname(data_path)):
-    os.mkdir(os.path.dirname(data_path))
-np.save(data_path + 'all_input.npy', all_data)
-np.save(data_path + 'all_target.npy', all_target)
-np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
-np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
-np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
-scipy.sparse.save_npz(data_path + 'adj.npz', W)
+    data_path = f'./data/{opt.dataset}/'
+    if not os.path.exists(os.path.dirname(data_path)):
+        os.mkdir(os.path.dirname(data_path))
+    np.save(data_path + 'all_input.npy', all_data)
+    np.save(data_path + 'all_target.npy', all_target)
+    np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
+    np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
+    np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
+    scipy.sparse.save_npz(data_path + 'adj.npz', W)
 
