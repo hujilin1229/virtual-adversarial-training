@@ -4,10 +4,12 @@ import torch.optim as optim
 from model import *
 from utils import *
 import os
+from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
+np.random.seed(42)
 
 batch_size = 32
-eval_batch_size = 10
+eval_batch_size = 100
 unlabeled_batch_size = 128
 num_labeled = 1000
 num_valid = 1000
@@ -261,33 +263,69 @@ if os.path.exists(path_best_model):
 
 test_accuracy = 0.0
 counter = 0
+K = 10
+model.eval()
 
 feature_maps = []
-for i in range(0, all_data.shape[0], eval_batch_size):
-    data = all_data[i:i+eval_batch_size]
-    # target = unlabeled_train_label[i:i+eval_batch_size]
-    pred_featmaps = eval_featmap(model.eval(), Variable(tocuda(data)))
-    print(i, pred_featmaps.shape)
-    feature_maps.append(pred_featmaps.cpu())
+# evaluate
+with torch.no_grad():
+    for i in range(0, all_data.shape[0], eval_batch_size):
+        data = all_data[i:i+eval_batch_size]
+        # target = unlabeled_train_label[i:i+eval_batch_size]
+        pred_featmaps = eval_featmap(model, Variable(tocuda(data)))
+        # print(i, pred_featmaps.shape)
+        feature_maps.append(pred_featmaps.cpu())
 
 feature_maps = torch.cat(feature_maps, dim=0)
+N = feature_maps.shape[0]
+feature_maps = feature_maps.view(N, -1)
 all_target = torch.cat([train_target, valid_target, test_target], dim=0)
 feature_maps = feature_maps.numpy()
 all_target = all_target.cpu().numpy()
 
-nbrs = NearestNeighbors(n_neighbors=10, algorithm='ball_tree').fit(feature_maps)
+nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
 distances, indices = nbrs.kneighbors(feature_maps)
-N = feature_maps.shape[0]
+
+col_indices = np.reshape(indices, (-1))
+row_indices = np.repeat(np.arange(N), K)
+
+dist_list = [1] * len(col_indices)
+W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
+# No self-connections.
+W.setdiag(0)
+# Non-directed graph.
+bigger = W.T > W
+W = W - W.multiply(bigger) + W.T.multiply(bigger)
+assert W.nnz % 2 == 0
+assert np.abs(W - W.T).mean() < 1e-10
+
+data_path = f'../data/vat_feat_nn/{opt.dataset}/'
+data_path_P = Path(data_path)
+data_path_P.mkdir(parents=True, exist_ok=True)
+# if not os.path.exists(os.path.dirname(data_path)):
+#     os.mkdir(os.path.dirname(data_path))
+np.save(data_path + 'all_input.npy', all_data)
+np.save(data_path + 'all_featmap.npy', feature_maps)
+np.save(data_path + 'all_target.npy', all_target)
+np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
+np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
+np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
+scipy.sparse.save_npz(data_path + 'adj.npz', W)
 
 correct_connect_sum = 0
 connect_sum = 0
+contain_correct_label_num = 0
 for i in range(N):
     label_i = all_target[i]
     nn_labels = all_target[indices[i]]
     correct_connect_sum += np.sum(nn_labels == label_i)
+    if np.sum(nn_labels == label_i) > 0:
+        contain_correct_label_num += 1
+
     connect_sum += len(indices[i])
 
 print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+print("Num of contain correct label is ", contain_correct_label_num)
 
 # test_pred = []
 # for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):

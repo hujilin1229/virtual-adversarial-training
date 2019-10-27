@@ -20,7 +20,7 @@ class VAT(nn.Module):
                   nn.LeakyReLU(0.1),
 
                   nn.MaxPool2d(2, 2, 1),
-                  nn.Dropout2d(),
+                  nn.Dropout2d(p=0.5),
 
                   nn.Conv2d(128, 256, 3, 1, 1, bias=False),
                   nn.BatchNorm2d(256),
@@ -35,7 +35,7 @@ class VAT(nn.Module):
                   nn.LeakyReLU(0.1),
 
                   nn.MaxPool2d(2, 2, 1),
-                  nn.Dropout2d(),
+                  nn.Dropout2d(p=0.5),
 
                   nn.Conv2d(256, 512, 3, 1, 0, bias=False),
                   nn.BatchNorm2d(512),

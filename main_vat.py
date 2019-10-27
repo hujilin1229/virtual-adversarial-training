@@ -4,6 +4,7 @@ import torch.optim as optim
 from model import *
 from utils import *
 import os
+np.random.seed(42)
 
 batch_size = 32
 eval_batch_size = 100
