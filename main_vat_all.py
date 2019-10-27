@@ -138,7 +138,7 @@ max_val_acc = 0.0
 patience = 0
 max_patience = 10
 
-path_best_model = f'./saved_models/{opt.dataset}/test_model_all'
+path_best_model = f'./saved_models/{opt.dataset}/test_model_vat_all'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
