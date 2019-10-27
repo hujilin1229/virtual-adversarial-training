@@ -158,8 +158,6 @@ model = tocuda(VAT(opt.top_bn, in_channels))
 model.apply(weights_init)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
-
-
 path_best_model = f'./saved_models/{opt.dataset}/test_model_vat_all'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
@@ -184,14 +182,14 @@ for epoch in range(opt.num_epochs):
                                 optimizer)
 
         if i % 100 == 0:
-            print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item())
+            print("Epoch :", epoch, "Iter :", i, "VAT Loss :", v_loss.item(), "CE Loss :", ce_loss.item(), flush=True)
 
     if epoch % eval_freq == 0 or epoch + 1 == opt.num_epochs:
 
         batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
         x = labeled_train[batch_indices]
         y = labeled_target[batch_indices]
-        train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
+        train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)), flush=True)
         print("Train accuracy :", train_accuracy.item())
 
         val_accuracy = 0.0
@@ -204,7 +202,7 @@ for epoch in range(opt.num_epochs):
             counter += batch_i
 
         avg_val_accuracy = val_accuracy / counter
-        print("Test accuracy :", avg_val_accuracy)
+        print("Test accuracy :", avg_val_accuracy, flush=True)
 
         if max_val_acc < avg_val_accuracy:
             max_val_acc = avg_val_accuracy
@@ -228,4 +226,4 @@ for (data, target) in test_loader:
     test_accuracy += n*acc
     counter += n
 
-print("Full test accuracy :", test_accuracy.item()/counter)
+print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
