@@ -110,6 +110,15 @@ elif opt.dataset == 'cifar10':
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
         batch_size=eval_batch_size, shuffle=True)
+elif opt.dataset == 'mnist':
+    # num_labeled = 1000
+    train_loader = torch.utils.data.DataLoader(
+        datasets.MNIST(root=opt.dataroot, train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ])),
+        batch_size=100, shuffle=True)
 
 else:
     raise NotImplementedError
@@ -124,11 +133,11 @@ for (data, target) in train_loader:
 train_data = torch.cat(train_data, dim=0)
 train_target = torch.cat(train_target, dim=0)
 
-valid_data, train_data = train_data[:num_valid, ], train_data[num_valid:, ]
-valid_target, train_target = train_target[:num_valid], train_target[num_valid:, ]
+valid_data, train_data = train_data[:opt.num_valid, ], train_data[opt.num_valid:, ]
+valid_target, train_target = train_target[:opt.num_valid], train_target[opt.num_valid:, ]
 
-labeled_train, labeled_target = train_data[:num_labeled, ], train_target[:num_labeled, ]
-unlabeled_train = train_data[num_labeled:, ]
+labeled_train, labeled_target = train_data[:opt.num_labeled, ], train_target[:opt.num_labeled, ]
+unlabeled_train = train_data[opt.num_labeled:, ]
 
 model = tocuda(VAT(opt.top_bn))
 model.apply(weights_init)
