@@ -120,6 +120,14 @@ elif opt.dataset == 'mnist':
                        ])),
         batch_size=100, shuffle=True)
 
+    test_loader = torch.utils.data.DataLoader(
+        datasets.MNIST(root=opt.dataroot, train=False, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ])),
+        batch_size=100, shuffle=True)
+
 else:
     raise NotImplementedError
 
