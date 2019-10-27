@@ -139,13 +139,18 @@ valid_target, train_target = train_target[:opt.num_valid], train_target[opt.num_
 labeled_train, labeled_target = train_data[:opt.num_labeled, ], train_target[:opt.num_labeled, ]
 unlabeled_train = train_data[opt.num_labeled:, ]
 
-model = tocuda(VAT(opt.top_bn))
+max_val_acc = 0.0
+patience = 0
+max_patience = 50
+in_channels = 3
+if opt.dataset == 'mnist':
+    in_channels = 1
+
+model = tocuda(VAT(opt.top_bn, in_channels))
 model.apply(weights_init)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
-max_val_acc = 0.0
-patience = 0
-max_patience = 10
+
 
 path_best_model = f'./saved_models/{opt.dataset}/test_model_vat_all'
 if not os.path.exists(os.path.dirname(path_best_model)):
