@@ -188,8 +188,8 @@ for epoch in range(opt.num_epochs):
         batch_indices = torch.LongTensor(np.random.choice(labeled_train.size()[0], batch_size, replace=False))
         x = labeled_train[batch_indices]
         y = labeled_target[batch_indices]
-        train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)), flush=True)
-        print("Train accuracy :", train_accuracy.item())
+        train_accuracy = eval(model.eval(), Variable(tocuda(x)), Variable(tocuda(y)))
+        print("Train accuracy :", train_accuracy.item(), flush=True)
 
         val_accuracy = 0.0
         counter = 0
