@@ -157,8 +157,12 @@ elif opt.dataset == 'stl10':
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                       ])),
         batch_size=eval_batch_size, shuffle=True)
-elif opt.dataset == 'tiny_imagenet':
-    train_data = data.prepare_imagenet(data_dir=opt.dataroot)
+elif opt.dataset == 'tiny-imagenet-200' or opt.dataset == 'mini-imagenet':
+    if opt.dataset == 'tiny-imagenet-200':
+        folder = 'train'
+    else:
+        folder = 'all'
+    train_data = data.prepare_imagenet(data_dir=opt.dataroot, dataset=opt.dataset, folder=folder)
     # print('Preparing data loaders ...')
     kwargs = {} if opt.use_cuda else {'num_workers': 1, 'pin_memory': True}
 

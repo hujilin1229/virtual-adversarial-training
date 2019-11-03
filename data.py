@@ -111,10 +111,9 @@ def prepare_test_data(dataset='cifar10', batch_size=128,
     return test_loader
 
 
-def prepare_imagenet(data_dir, dataset='tiny-imagenet-200', pretrained=False, ts=False):
+def prepare_imagenet(data_dir, dataset='tiny-imagenet-200', folder='train', pretrained=False, ts=False):
     dataset_dir = os.path.join(data_dir, dataset)
-    train_dir = os.path.join(dataset_dir, 'train')
-    val_dir = os.path.join(dataset_dir, 'val', 'images')
+    train_dir = os.path.join(dataset_dir, folder)
 
     # Pre-calculated mean & std on imagenet:
     # norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
