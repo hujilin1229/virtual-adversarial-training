@@ -4,6 +4,7 @@ import torch.optim as optim
 from model import *
 from utils import *
 import os
+import data
 np.random.seed(42)
 
 batch_size = 32
@@ -27,6 +28,11 @@ parser.add_argument('--top_bn', type=bool, default=True)
 parser.add_argument('--method', default='vat')
 parser.add_argument('--train', default=True, action='store_false')
 parser.add_argument('--save_data', default=False, action='store_true')
+
+parser.add_argument('--num_train', type=int, default=100)
+parser.add_argument('--num_val', type=int, default=100)
+parser.add_argument('--num_total', type=int, default=1000)
+
 opt = parser.parse_args()
 
 os.environ["CUDA_VISIBLE_DEVICES"] = cuda_device
@@ -116,6 +122,52 @@ elif opt.dataset == 'mnist':
                            transforms.Normalize((0.1307,), (0.3081,))
                        ])),
         batch_size=100, shuffle=True)
+elif opt.dataset == 'imagenet12':
+    num_labeled = 4000
+    train_loader = torch.utils.data.DataLoader(
+        datasets.ImageNet(root=opt.dataroot, train=True, download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor(),
+                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                      ])),
+        batch_size=batch_size, shuffle=True)
+
+    test_loader = torch.utils.data.DataLoader(
+        datasets.ImageNet(root=opt.dataroot, train=False, download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor(),
+                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                      ])),
+        batch_size=eval_batch_size, shuffle=True)
+elif opt.dataset == 'stl10':
+    # num_labeled = 4000
+    # splits = ('train', 'train+unlabeled', 'unlabeled', 'test')
+    train_loader = torch.utils.data.DataLoader(
+        datasets.STL10(root=opt.dataroot, split='train+unlabeled', download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor(),
+                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                      ])),
+        batch_size=batch_size, shuffle=True)
+
+    test_loader = torch.utils.data.DataLoader(
+        datasets.STL10(root=opt.dataroot, split='test', download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor(),
+                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                      ])),
+        batch_size=eval_batch_size, shuffle=True)
+elif opt.dataset == 'tiny_imagenet':
+    train_data = data.prepare_imagenet(data_dir=opt.dataroot)
+    # print('Preparing data loaders ...')
+    kwargs = {} if opt.use_cuda else {'num_workers': 1, 'pin_memory': True}
+
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
+                                                shuffle=True, **kwargs)
+
+    # test_loader = torch.utils.data.DataLoader(val_data, batch_size=eval_batch_size,
+    #                                               shuffle=True, **kwargs)
+
 else:
     raise NotImplementedError
 
@@ -132,9 +184,13 @@ train_target = torch.cat(train_target, dim=0)
 unique_labels = np.unique(train_target)
 print("Unique Labels: ", unique_labels)
 n_class = len(unique_labels)
-nSamples_per_class_train = 100
-nSamples_per_class_val = 100
-nSamples_per_unlabel = 1000 - nSamples_per_class_train - nSamples_per_class_val
+# parser.add_argument('--num_train', type=int, default=100)
+# parser.add_argument('--num_val', type=int, default=100)
+# parser.add_argument('--num_total', type=int, default=1000)
+
+nSamples_per_class_train = opt.num_train
+nSamples_per_class_val = opt.num_val
+nSamples_per_unlabel = opt.num_total - nSamples_per_class_train - nSamples_per_class_val
 
 select_train_data = []
 select_train_label = []
@@ -153,8 +209,8 @@ for label in unique_labels:
     select_val_data.append(current_label_X[nSamples_per_class_train:nSamples_per_class_train+nSamples_per_class_val])
     select_val_label.append(current_label_y[nSamples_per_class_train:nSamples_per_class_train + nSamples_per_class_val])
 
-    unlabeled_train_data.append(current_label_X[nSamples_per_class_train + nSamples_per_class_val:1000])
-    unlabeled_train_label.append(current_label_y[nSamples_per_class_train + nSamples_per_class_val:1000])
+    unlabeled_train_data.append(current_label_X[nSamples_per_class_train + nSamples_per_class_val:opt.num_total])
+    unlabeled_train_label.append(current_label_y[nSamples_per_class_train + nSamples_per_class_val:opt.num_total])
 
 train_data = torch.cat(select_train_data, dim=0)
 train_target = torch.cat(select_train_label, dim=0)

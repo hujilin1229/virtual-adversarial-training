@@ -155,6 +155,47 @@ valid_target, train_target = train_target[:opt.num_valid], train_target[opt.num_
 labeled_train, labeled_target = train_data[:opt.num_labeled, ], train_target[:opt.num_labeled, ]
 unlabeled_train = train_data[opt.num_labeled:, ]
 
+# Draw Class level images
+###################################################################################################
+# Image save function that deals correctly with channels.
+###################################################################################################
+
+def save_image(filename, img):
+    if len(img.shape) == 3:
+        if img.shape[0] == 1:
+            img = img[0]  # CHW -> HW (saves as grayscale)
+        else:
+            img = np.transpose(img,
+                               (1, 2, 0))  # CHW -> HWC (as expected by toimage)
+
+    scipy.misc.toimage(img, cmin=0.0, cmax=1.0).save(filename)
+
+
+# Assign labels to a subset of inputs.
+print("Input Data shape is ", train_data.shape)
+num_classes = 10
+max_count = 10
+total_train_num = train_data.shape[0]
+n_xl = train_data.shape[2]
+num_img = min(num_classes, 20)
+img_count = min(num_classes, 20)
+label_image = np.zeros(
+    (train_data.shape[1], n_xl * num_img, n_xl * img_count))
+count = [0] * num_classes
+for i in range(total_train_num):
+    label = train_target[i].item()
+    if count[label] < max_count:
+        if count[label] < img_count and label < num_img:
+            label_image[:, label * n_xl: (label + 1) * n_xl,
+            count[label] * n_xl: (count[label] + 1) * n_xl] = train_data[i]
+    count[label] += 1
+
+# # Dump out some of the labeled digits.
+# save_image(os.path.join('./results/', f'labeled_inputs{opt.dataset}.png'),
+#            label_image)
+
+print("Finish Constructing Image...")
+
 max_val_acc = 0.0
 patience = 0
 max_patience = 50
@@ -250,25 +291,24 @@ labeled_train, labeled_target = train_data[:opt.num_labeled, ], train_target[:op
 unlabeled_train, unlabeled_target = train_data[opt.num_labeled:, ], train_target[opt.num_labeled:, ]
 
 all_training_data = torch.cat([labeled_train, valid_data, unlabeled_train], dim=0)
-all_training_label = torch.cat([labeled_target, unlabeled_target, train_target], dim=0)
+all_training_label = torch.cat([labeled_target, valid_target, unlabeled_target], dim=0)
 
-print("Total Number of Training Data is ", all_training_data.shape[0], flush=True)
+num_training_data = all_training_data.shape[0]
+print("Total Number of Training Data is ", num_training_data, flush=True)
 test_accuracy = 0.0
 counter = 0
 K = 10
-model.eval()
 feature_maps = []
-targets = []
+targets = [all_training_label]
 all_data = [all_training_data]
 with torch.no_grad():
     for i in range(0, all_training_data.shape[0], eval_batch_size):
         data = all_training_data[i:i+eval_batch_size]
         target = all_training_label[i:i+eval_batch_size]
         # target = unlabeled_train_label[i:i+eval_batch_size]
-        pred_featmaps = eval_featmap(model, Variable(tocuda(data)))
+        pred_featmaps = eval_featmap(model.eval(), Variable(tocuda(data)))
         # print(i, pred_featmaps.shape)
         feature_maps.append(pred_featmaps.cpu())
-        targets.append(target)
 
     for (data, target) in test_loader:
         all_data.append(data)
@@ -277,19 +317,26 @@ with torch.no_grad():
         test_accuracy += tmp_accuracy * batch_i
         counter += batch_i
 
-        pred_featmaps = eval_featmap(model, Variable(tocuda(data)))
+        pred_featmaps = eval_featmap(model.eval(), Variable(tocuda(data)))
         # print(i, pred_featmaps.shape)
         feature_maps.append(pred_featmaps.cpu())
         targets.append(target)
 
+print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
 
 all_data = torch.cat(all_data, dim=0)
 feature_maps = torch.cat(feature_maps, dim=0)
-all_target = torch.cat(targets, dim=0)
 N = feature_maps.shape[0]
+all_target = torch.cat(targets, dim=0)
+
 feature_maps = feature_maps.view(N, -1)
 # all_target = torch.cat([train_target, valid_target, test_target], dim=0)
 feature_maps = feature_maps.numpy()
+
+# feature_maps = np.load(f'../data/vat_feat_nn_all/{opt.dataset}/'+'all_featmap.npy')
+# print("Feature Map Shape is ", feature_maps.shape)
+# N = feature_maps.shape[0]
+
 all_target = all_target.cpu().numpy()
 all_data = all_data.numpy()
 
@@ -298,6 +345,9 @@ distances, indices = nbrs.kneighbors(feature_maps)
 
 col_indices = np.reshape(indices, (-1))
 row_indices = np.repeat(np.arange(N), K)
+
+print("col num is ", len(col_indices))
+print("row num is ", len(row_indices))
 
 dist_list = [1] * len(col_indices)
 W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
@@ -312,14 +362,13 @@ assert np.abs(W - W.T).mean() < 1e-10
 data_path = f'../data/vat_feat_nn_all/{opt.dataset}/'
 data_path_P = Path(data_path)
 data_path_P.mkdir(parents=True, exist_ok=True)
-# if not os.path.exists(os.path.dirname(data_path)):
-#     os.mkdir(os.path.dirname(data_path))
+
 np.save(data_path + 'all_input.npy', all_data)
 np.save(data_path + 'all_featmap.npy', feature_maps)
 np.save(data_path + 'all_target.npy', all_target)
-np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
-np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
-np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
+np.save(data_path + 'train_ind.npy', np.arange(opt.num_labeled))
+np.save(data_path + 'val_ind.npy', np.arange(opt.num_labeled, opt.num_valid+opt.num_labeled))
+np.save(data_path + 'test_ind.npy', np.arange(num_training_data, N))
 scipy.sparse.save_npz(data_path + 'adj.npz', W)
 
 correct_connect_sum = 0
@@ -329,7 +378,7 @@ for i in range(N):
     label_i = all_target[i]
     nn_labels = all_target[indices[i]]
     correct_connect_sum += np.sum(nn_labels == label_i)
-    if np.sum(nn_labels == label_i) > 0:
+    if np.sum(nn_labels == label_i) > 1:
         contain_correct_label_num += 1
 
     connect_sum += len(indices[i])
