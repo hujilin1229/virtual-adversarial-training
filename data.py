@@ -124,9 +124,10 @@ def prepare_imagenet(data_dir, dataset='tiny-imagenet-200', pretrained=False, ts
 
     print('Preparing dataset ...')
     # Normalization
-    norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) \
-        if pretrained else transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    # norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) \
+    #     if pretrained else transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 
+    norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     # Normal transformation
     if pretrained:
         train_trans = [transforms.RandomHorizontalFlip(), transforms.RandomResizedCrop(224),
