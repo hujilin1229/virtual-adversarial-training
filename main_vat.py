@@ -7,7 +7,7 @@ import os
 import data
 np.random.seed(42)
 
-batch_size = 32
+batch_size = 16
 eval_batch_size = 100
 unlabeled_batch_size = 128
 num_labeled = 1000
@@ -182,7 +182,7 @@ train_data = torch.cat(train_data, dim=0)
 train_target = torch.cat(train_target, dim=0)
 
 unique_labels = np.unique(train_target)
-print("Unique Labels: ", unique_labels)
+print("Unique Labels: ", unique_labels, flush=True)
 n_class = len(unique_labels)
 # parser.add_argument('--num_train', type=int, default=100)
 # parser.add_argument('--num_val', type=int, default=100)
