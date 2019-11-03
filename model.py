@@ -2,7 +2,7 @@ import torch.nn as nn
 
 class VAT(nn.Module):
 
-      def __init__(self, top_bn=True, input_channels=3):
+      def __init__(self, top_bn=True, input_channels=3, n_class=10):
 
             super(VAT, self).__init__()
             self.top_bn = top_bn
@@ -52,8 +52,8 @@ class VAT(nn.Module):
                   nn.AdaptiveAvgPool2d((1, 1))
                   )
 
-            self.linear = nn.Linear(128, 10)
-            self.bn = nn.BatchNorm1d(10)
+            self.linear = nn.Linear(128, n_class)
+            self.bn = nn.BatchNorm1d(n_class)
 
       def forward(self, input, featmap_only=False):
             output = self.main(input)

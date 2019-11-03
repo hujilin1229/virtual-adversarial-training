@@ -7,9 +7,9 @@ import os
 import data
 np.random.seed(42)
 
-batch_size = 16
+batch_size = 32
 eval_batch_size = 50
-unlabeled_batch_size = 64
+unlabeled_batch_size = 128
 num_labeled = 1000
 num_valid = 1000
 num_iter_per_epoch = 400
@@ -187,6 +187,7 @@ train_target = torch.cat(train_target, dim=0)
 
 unique_labels = np.unique(train_target)
 print("Unique Labels: ", unique_labels, flush=True)
+print("Number of labels: ", len(unique_labels))
 n_class = len(unique_labels)
 # parser.add_argument('--num_train', type=int, default=100)
 # parser.add_argument('--num_val', type=int, default=100)
@@ -241,7 +242,7 @@ unlabeled_train_label = test_target[test_random_ind]
 
 all_data = torch.cat([train_data, valid_data, test_data], dim=0)
 print("All Data Shape is ", all_data.shape)
-
+print("Target Shape is ", train_target.shape)
 # valid_data, train_data = train_data[:num_valid, ], train_data[num_valid:, ]
 # valid_target, train_target = train_target[:num_valid], train_target[num_valid:, ]
 # 
@@ -251,7 +252,7 @@ print("All Data Shape is ", all_data.shape)
 in_channels = 3
 if opt.dataset == 'mnist':
     in_channels = 1
-model = tocuda(VAT(opt.top_bn, in_channels))
+model = tocuda(VAT(opt.top_bn, in_channels, n_class=n_class))
 model.apply(weights_init)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 max_val_acc = 0.0
