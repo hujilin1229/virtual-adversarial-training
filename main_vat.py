@@ -8,8 +8,8 @@ import data
 np.random.seed(42)
 
 batch_size = 16
-eval_batch_size = 100
-unlabeled_batch_size = 128
+eval_batch_size = 50
+unlabeled_batch_size = 64
 num_labeled = 1000
 num_valid = 1000
 num_iter_per_epoch = 400
@@ -240,6 +240,7 @@ unlabeled_train_data = test_data[test_random_ind]
 unlabeled_train_label = test_target[test_random_ind]
 
 all_data = torch.cat([train_data, valid_data, test_data], dim=0)
+print("All Data Shape is ", all_data.shape)
 
 # valid_data, train_data = train_data[:num_valid, ], train_data[num_valid:, ]
 # valid_target, train_target = train_target[:num_valid], train_target[num_valid:, ]
