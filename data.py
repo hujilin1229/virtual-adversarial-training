@@ -116,7 +116,6 @@ def prepare_imagenet(data_dir, dataset='tiny-imagenet-200', pretrained=False, ts
     train_dir = os.path.join(dataset_dir, 'train')
     val_dir = os.path.join(dataset_dir, 'val', 'images')
 
-
     # Pre-calculated mean & std on imagenet:
     # norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     # For other datasets, we could just simply use 0.5:
