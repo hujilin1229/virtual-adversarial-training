@@ -186,6 +186,8 @@ train_data = torch.cat(train_data, dim=0)
 train_target = torch.cat(train_target, dim=0)
 
 unique_labels = np.unique(train_target)
+unique_labels = np.sort(unique_labels)
+unique_labels = unique_labels[:10]
 print("Unique Labels: ", unique_labels, flush=True)
 print("Number of labels: ", len(unique_labels))
 n_class = len(unique_labels)
