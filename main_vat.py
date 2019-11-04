@@ -262,7 +262,7 @@ max_val_acc = 0.0
 patience = 0
 max_patience = 10
 
-path_best_model = f'./saved_models/{opt.dataset}/test_model'
+path_best_model = f'./saved_models/{opt.dataset}/test_model_{n_class}'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
@@ -384,7 +384,7 @@ if opt.save_data:
     assert W.nnz % 2 == 0
     assert np.abs(W - W.T).mean() < 1e-10
 
-    data_path = f'./data/{opt.dataset}/'
+    data_path = f'./data/{opt.dataset}_{n_class}/'
     if not os.path.exists(os.path.dirname(data_path)):
         os.mkdir(os.path.dirname(data_path))
     np.save(data_path + 'all_input.npy', all_data)
