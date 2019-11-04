@@ -32,6 +32,7 @@ parser.add_argument('--save_data', default=False, action='store_true')
 parser.add_argument('--num_train', type=int, default=100)
 parser.add_argument('--num_val', type=int, default=100)
 parser.add_argument('--num_total', type=int, default=1000)
+parser.add_argument('--num_class', type=int, default=100)
 
 opt = parser.parse_args()
 
@@ -187,7 +188,7 @@ train_target = torch.cat(train_target, dim=0)
 
 unique_labels = np.unique(train_target)
 unique_labels = np.sort(unique_labels)
-unique_labels = unique_labels[:10]
+unique_labels = unique_labels[:opt.num_class]
 print("Unique Labels: ", unique_labels, flush=True)
 print("Number of labels: ", len(unique_labels))
 n_class = len(unique_labels)
