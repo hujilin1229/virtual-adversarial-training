@@ -5,6 +5,8 @@ from model import *
 from utils import *
 import os
 import data
+from pathlib import Path
+from sklearn.neighbors import NearestNeighbors
 np.random.seed(42)
 
 batch_size = 32
@@ -67,6 +69,11 @@ def eval(model, x, y):
     y_pred = model(x)
     prob, idx = torch.max(y_pred, dim=1)
     return torch.eq(idx, y).float().mean(), idx
+
+def eval_featmap(model, x):
+
+    y_pred = model(x, featmap_only=True)
+    return y_pred
 
 
 def weights_init(m):
@@ -341,41 +348,36 @@ for i in range(0, unlabeled_train_data.shape[0], eval_batch_size):
 print("Full test accuracy :", test_accuracy.item()/counter, flush=True)
 
 if opt.save_data:
-    # write the resulted data
-    # compose all the data and label together
-    test_pred = torch.cat(test_pred, dim=0).cpu()
-    all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
-    all_target = torch.cat([train_target, valid_target, unlabeled_train_label], dim=0)
-    construct_graph_label = torch.cat([train_target, valid_target, test_pred], dim=0)
-    all_data = all_data.cpu().numpy()
-    all_target = all_target.cpu().numpy()
-    construct_graph_label = construct_graph_label.cpu().numpy()
-    N = all_data.shape[0]
-    num_labeled = train_data.shape[0]
-    num_valid = valid_data.shape[0]
-
-    col_list = []
-    row_list = []
-    correct_connect_sum = 0
-    connect_sum = 0
+    test_accuracy = 0.0
+    counter = 0
     K = 10
-    for i in range(N):
-        label_i = construct_graph_label[i]
-        same_label_ind = np.arange(N)[construct_graph_label==label_i]
-        same_label_ind = np.random.choice(same_label_ind, K, replace=False)
-        # print(i, same_label_ind)
+    model.eval()
 
-        col_list += same_label_ind.tolist()
-        row_list += [i] * len(same_label_ind)
-        connected_labels = construct_graph_label[same_label_ind]
-        connected_gt_labels = all_target[same_label_ind]
-        correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
-        connect_sum += len(same_label_ind)
+    feature_maps = []
+    # evaluate
+    with torch.no_grad():
+        for i in range(0, all_data.shape[0], eval_batch_size):
+            data = all_data[i:i + eval_batch_size]
+            # target = unlabeled_train_label[i:i+eval_batch_size]
+            pred_featmaps = eval_featmap(model, Variable(tocuda(data)))
+            # print(i, pred_featmaps.shape)
+            feature_maps.append(pred_featmaps.cpu())
 
-    print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+    feature_maps = torch.cat(feature_maps, dim=0)
+    N = feature_maps.shape[0]
+    feature_maps = feature_maps.view(N, -1)
+    all_target = torch.cat([train_target, valid_target, test_target], dim=0)
+    feature_maps = feature_maps.numpy()
+    all_target = all_target.cpu().numpy()
 
-    dist_list = [1] * len(col_list)
-    W = scipy.sparse.coo_matrix((dist_list, (row_list, col_list)), shape=(N, N))
+    nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
+    distances, indices = nbrs.kneighbors(feature_maps)
+
+    col_indices = np.reshape(indices, (-1))
+    row_indices = np.repeat(np.arange(N), K)
+
+    dist_list = [1] * len(col_indices)
+    W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
     # No self-connections.
     W.setdiag(0)
     # Non-directed graph.
@@ -384,13 +386,87 @@ if opt.save_data:
     assert W.nnz % 2 == 0
     assert np.abs(W - W.T).mean() < 1e-10
 
-    data_path = f'./data/{opt.dataset}_{n_class}/'
-    if not os.path.exists(os.path.dirname(data_path)):
-        os.mkdir(os.path.dirname(data_path))
+    # data_path = f'../data/vat_feat_nn/{opt.dataset}/'
+    data_path = f'../data/vat_feat_nn/{opt.dataset}_{n_class}/'
+
+    data_path_P = Path(data_path)
+    data_path_P.mkdir(parents=True, exist_ok=True)
+    # if not os.path.exists(os.path.dirname(data_path)):
+    #     os.mkdir(os.path.dirname(data_path))
     np.save(data_path + 'all_input.npy', all_data)
+    np.save(data_path + 'all_featmap.npy', feature_maps)
     np.save(data_path + 'all_target.npy', all_target)
     np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
-    np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
-    np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
+    np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid + num_labeled))
+    np.save(data_path + 'test_ind.npy', np.arange(num_valid + num_labeled, N))
     scipy.sparse.save_npz(data_path + 'adj.npz', W)
+
+    correct_connect_sum = 0
+    connect_sum = 0
+    contain_correct_label_num = 0
+    for i in range(N):
+        label_i = all_target[i]
+        nn_labels = all_target[indices[i]]
+        correct_connect_sum += np.sum(nn_labels == label_i)
+        if np.sum(nn_labels == label_i) > 0:
+            contain_correct_label_num += 1
+
+        connect_sum += len(indices[i])
+
+    print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+    print("Num of contain correct label is ", contain_correct_label_num)
+
+
+    # # write the resulted data
+    # # compose all the data and label together
+    # test_pred = torch.cat(test_pred, dim=0).cpu()
+    # all_data = torch.cat([train_data, valid_data, unlabeled_train_data], dim=0)
+    # all_target = torch.cat([train_target, valid_target, unlabeled_train_label], dim=0)
+    # construct_graph_label = torch.cat([train_target, valid_target, test_pred], dim=0)
+    # all_data = all_data.cpu().numpy()
+    # all_target = all_target.cpu().numpy()
+    # construct_graph_label = construct_graph_label.cpu().numpy()
+    # N = all_data.shape[0]
+    # num_labeled = train_data.shape[0]
+    # num_valid = valid_data.shape[0]
+    #
+    # col_list = []
+    # row_list = []
+    # correct_connect_sum = 0
+    # connect_sum = 0
+    # K = 10
+    # for i in range(N):
+    #     label_i = construct_graph_label[i]
+    #     same_label_ind = np.arange(N)[construct_graph_label==label_i]
+    #     same_label_ind = np.random.choice(same_label_ind, K, replace=False)
+    #     # print(i, same_label_ind)
+    #
+    #     col_list += same_label_ind.tolist()
+    #     row_list += [i] * len(same_label_ind)
+    #     connected_labels = construct_graph_label[same_label_ind]
+    #     connected_gt_labels = all_target[same_label_ind]
+    #     correct_connect_sum += np.sum(connected_gt_labels == connected_labels)
+    #     connect_sum += len(same_label_ind)
+    #
+    # print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+    #
+    # dist_list = [1] * len(col_list)
+    # W = scipy.sparse.coo_matrix((dist_list, (row_list, col_list)), shape=(N, N))
+    # # No self-connections.
+    # W.setdiag(0)
+    # # Non-directed graph.
+    # bigger = W.T > W
+    # W = W - W.multiply(bigger) + W.T.multiply(bigger)
+    # assert W.nnz % 2 == 0
+    # assert np.abs(W - W.T).mean() < 1e-10
+    #
+    # data_path = f'./data/{opt.dataset}_{n_class}/'
+    # if not os.path.exists(os.path.dirname(data_path)):
+    #     os.mkdir(os.path.dirname(data_path))
+    # np.save(data_path + 'all_input.npy', all_data)
+    # np.save(data_path + 'all_target.npy', all_target)
+    # np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
+    # np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid+num_labeled))
+    # np.save(data_path + 'test_ind.npy', np.arange(num_valid+num_labeled, N))
+    # scipy.sparse.save_npz(data_path + 'adj.npz', W)
 
