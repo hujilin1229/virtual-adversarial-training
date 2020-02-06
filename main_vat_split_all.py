@@ -392,6 +392,8 @@ if opt.save_data:
     data_path = f'./data/vat_feat_nn_split_all/{opt.dataset}/'
     # data_path = f'../data/vat_feat_nn/{opt.dataset}_{n_class}/'
 
+    print("Total number of data is ", N)
+
     data_path_P = Path(data_path)
     data_path_P.mkdir(parents=True, exist_ok=True)
     # if not os.path.exists(os.path.dirname(data_path)):
