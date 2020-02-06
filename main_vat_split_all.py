@@ -262,7 +262,7 @@ val_random_ind = np.arange(nSamples_per_class_val * n_class)
 test_random_ind = np.arange(nSamples_unlabel)
 np.random.shuffle(train_random_ind)
 np.random.shuffle(val_random_ind)
-# np.random.shuffle(test_random_ind)
+np.random.shuffle(test_random_ind)
 
 train_data = train_data[train_random_ind]
 train_target = train_target[train_random_ind]
