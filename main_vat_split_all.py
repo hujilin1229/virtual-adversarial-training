@@ -428,21 +428,20 @@ if opt.save_data:
     np.save(data_path + 'test_ind.npy', np.arange(num_valid + num_labeled, N))
     # scipy.sparse.save_npz(data_path + 'adj.npz', W)
 
-
-    correct_connect_sum = 0
-    connect_sum = 0
-    contain_correct_label_num = 0
-    for i in range(N):
-        label_i = all_target[i]
-        nn_labels = all_target[indices[i]]
-        correct_connect_sum += np.sum(nn_labels == label_i)
-        if np.sum(nn_labels == label_i) > 0:
-            contain_correct_label_num += 1
-
-        connect_sum += len(indices[i])
-
-    print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
-    print("Num of contain correct label is ", contain_correct_label_num)
+    # correct_connect_sum = 0
+    # connect_sum = 0
+    # contain_correct_label_num = 0
+    # for i in range(N):
+    #     label_i = all_target[i]
+    #     nn_labels = all_target[indices[i]]
+    #     correct_connect_sum += np.sum(nn_labels == label_i)
+    #     if np.sum(nn_labels == label_i) > 0:
+    #         contain_correct_label_num += 1
+    #
+    #     connect_sum += len(indices[i])
+    #
+    # print("The ratio of correctly connected nodes is ", correct_connect_sum / connect_sum)
+    # print("Num of contain correct label is ", contain_correct_label_num)
 
 
     # # write the resulted data
