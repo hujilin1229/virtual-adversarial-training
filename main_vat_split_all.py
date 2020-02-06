@@ -45,6 +45,26 @@ def tocuda(x):
         return x.cuda()
     return x
 
+def construct_adjacent_matrix(K, feature_maps, N):
+
+    nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
+    distances, indices = nbrs.kneighbors(feature_maps)
+
+    col_indices = np.reshape(indices, (-1))
+    row_indices = np.repeat(np.arange(N), K)
+
+    dist_list = [1] * len(col_indices)
+    W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
+    # No self-connections.
+    W.setdiag(0)
+    # Non-directed graph.
+    bigger = W.T > W
+    W = W - W.multiply(bigger) + W.T.multiply(bigger)
+    assert W.nnz % 2 == 0
+    assert np.abs(W - W.T).mean() < 1e-10
+
+    return W
+
 def train(model, x, y, ul_x, optimizer):
 
     ce = nn.CrossEntropyLoss()
@@ -373,21 +393,25 @@ if opt.save_data:
     feature_maps = feature_maps.numpy()
     all_target = all_target.cpu().numpy()
 
-    nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
-    distances, indices = nbrs.kneighbors(feature_maps)
+    # W = construct_adjacent_matrix(K, feature_maps, N)
 
-    col_indices = np.reshape(indices, (-1))
-    row_indices = np.repeat(np.arange(N), K)
-
-    dist_list = [1] * len(col_indices)
-    W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
-    # No self-connections.
-    W.setdiag(0)
-    # Non-directed graph.
-    bigger = W.T > W
-    W = W - W.multiply(bigger) + W.T.multiply(bigger)
-    assert W.nnz % 2 == 0
-    assert np.abs(W - W.T).mean() < 1e-10
+    # # Construct Adjacent Matrix
+    # nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
+    # distances, indices = nbrs.kneighbors(feature_maps)
+    #
+    # col_indices = np.reshape(indices, (-1))
+    # row_indices = np.repeat(np.arange(N), K)
+    #
+    # dist_list = [1] * len(col_indices)
+    # W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
+    # # No self-connections.
+    # W.setdiag(0)
+    # # Non-directed graph.
+    # bigger = W.T > W
+    # W = W - W.multiply(bigger) + W.T.multiply(bigger)
+    # assert W.nnz % 2 == 0
+    # assert np.abs(W - W.T).mean() < 1e-10
+    #
 
     data_path = f'./data/vat_feat_nn_split_all/{opt.dataset}/'
     # data_path = f'../data/vat_feat_nn/{opt.dataset}_{n_class}/'
@@ -396,15 +420,14 @@ if opt.save_data:
 
     data_path_P = Path(data_path)
     data_path_P.mkdir(parents=True, exist_ok=True)
-    # if not os.path.exists(os.path.dirname(data_path)):
-    #     os.mkdir(os.path.dirname(data_path))
     np.save(data_path + 'all_input.npy', all_data)
     np.save(data_path + 'all_featmap.npy', feature_maps)
     np.save(data_path + 'all_target.npy', all_target)
     np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
     np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid + num_labeled))
     np.save(data_path + 'test_ind.npy', np.arange(num_valid + num_labeled, N))
-    scipy.sparse.save_npz(data_path + 'adj.npz', W)
+    # scipy.sparse.save_npz(data_path + 'adj.npz', W)
+
 
     correct_connect_sum = 0
     connect_sum = 0
