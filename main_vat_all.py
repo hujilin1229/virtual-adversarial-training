@@ -83,7 +83,6 @@ def weights_init(m):
     elif classname.find('Linear') != -1:
         m.bias.data.fill_(0)
 
-
 if opt.dataset == 'svhn':
     train_loader = torch.utils.data.DataLoader(
         datasets.SVHN(root=opt.dataroot, split='train', download=True,

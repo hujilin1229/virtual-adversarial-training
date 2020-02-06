@@ -131,52 +131,52 @@ elif opt.dataset == 'mnist':
                        ])),
         batch_size=100, shuffle=True)
 
-elif opt.dataset == 'imagenet12':
-    num_labeled = 4000
-    train_loader = torch.utils.data.DataLoader(
-        datasets.ImageNet(root=opt.dataroot, train=True, download=True,
-                      transform=transforms.Compose([
-                          transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                      ])),
-        batch_size=batch_size, shuffle=True)
-
-    test_loader = torch.utils.data.DataLoader(
-        datasets.ImageNet(root=opt.dataroot, train=False, download=True,
-                      transform=transforms.Compose([
-                          transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                      ])),
-        batch_size=eval_batch_size, shuffle=True)
-elif opt.dataset == 'stl10':
-    # num_labeled = 4000
-    # splits = ('train', 'train+unlabeled', 'unlabeled', 'test')
-    train_loader = torch.utils.data.DataLoader(
-        datasets.STL10(root=opt.dataroot, split='train+unlabeled', download=True,
-                      transform=transforms.Compose([
-                          transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                      ])),
-        batch_size=batch_size, shuffle=True)
-
-    test_loader = torch.utils.data.DataLoader(
-        datasets.STL10(root=opt.dataroot, split='test', download=True,
-                      transform=transforms.Compose([
-                          transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                      ])),
-        batch_size=eval_batch_size, shuffle=True)
-elif opt.dataset == 'tiny-imagenet-200' or opt.dataset == 'mini-imagenet':
-    if opt.dataset == 'tiny-imagenet-200':
-        folder = 'train'
-    else:
-        folder = 'all'
-    train_data = data.prepare_imagenet(data_dir=opt.dataroot, dataset=opt.dataset, folder=folder)
-    # print('Preparing data loaders ...')
-    kwargs = {} if opt.use_cuda else {'num_workers': 1, 'pin_memory': True}
-
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
-                                                shuffle=True, **kwargs)
+# elif opt.dataset == 'imagenet12':
+#     num_labeled = 4000
+#     train_loader = torch.utils.data.DataLoader(
+#         datasets.ImageNet(root=opt.dataroot, train=True, download=True,
+#                       transform=transforms.Compose([
+#                           transforms.ToTensor(),
+#                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+#                       ])),
+#         batch_size=batch_size, shuffle=True)
+#
+#     test_loader = torch.utils.data.DataLoader(
+#         datasets.ImageNet(root=opt.dataroot, train=False, download=True,
+#                       transform=transforms.Compose([
+#                           transforms.ToTensor(),
+#                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+#                       ])),
+#         batch_size=eval_batch_size, shuffle=True)
+# elif opt.dataset == 'stl10':
+#     # num_labeled = 4000
+#     # splits = ('train', 'train+unlabeled', 'unlabeled', 'test')
+#     train_loader = torch.utils.data.DataLoader(
+#         datasets.STL10(root=opt.dataroot, split='train+unlabeled', download=True,
+#                       transform=transforms.Compose([
+#                           transforms.ToTensor(),
+#                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+#                       ])),
+#         batch_size=batch_size, shuffle=True)
+#
+#     test_loader = torch.utils.data.DataLoader(
+#         datasets.STL10(root=opt.dataroot, split='test', download=True,
+#                       transform=transforms.Compose([
+#                           transforms.ToTensor(),
+#                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+#                       ])),
+#         batch_size=eval_batch_size, shuffle=True)
+# elif opt.dataset == 'tiny-imagenet-200' or opt.dataset == 'mini-imagenet':
+#     if opt.dataset == 'tiny-imagenet-200':
+#         folder = 'train'
+#     else:
+#         folder = 'all'
+#     train_data = data.prepare_imagenet(data_dir=opt.dataroot, dataset=opt.dataset, folder=folder)
+#     # print('Preparing data loaders ...')
+#     kwargs = {} if opt.use_cuda else {'num_workers': 1, 'pin_memory': True}
+#
+#     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
+#                                                 shuffle=True, **kwargs)
 
     # test_loader = torch.utils.data.DataLoader(val_data, batch_size=eval_batch_size,
     #                                               shuffle=True, **kwargs)
@@ -206,7 +206,7 @@ n_class = len(unique_labels)
 
 nSamples_per_class_train = opt.num_train
 nSamples_per_class_val = opt.num_val
-nSamples_per_unlabel = opt.num_total - nSamples_per_class_train - nSamples_per_class_val
+
 
 select_train_data = []
 select_train_label = []
@@ -228,6 +228,8 @@ for label in unique_labels:
     unlabeled_train_data.append(current_label_X[nSamples_per_class_train + nSamples_per_class_val:opt.num_total])
     unlabeled_train_label.append(current_label_y[nSamples_per_class_train + nSamples_per_class_val:opt.num_total])
 
+nSamples_unlabel = sum([unlabel_data.shape[0] for unlabel_data in unlabeled_train_data])
+
 train_data = torch.cat(select_train_data, dim=0)
 train_target = torch.cat(select_train_label, dim=0)
 valid_data = torch.cat(select_val_data, dim=0)
@@ -237,10 +239,10 @@ test_target = torch.cat(unlabeled_train_label, dim=0)
 # random shuffle the data
 train_random_ind = np.arange(nSamples_per_class_train * n_class)
 val_random_ind = np.arange(nSamples_per_class_val * n_class)
-test_random_ind = np.arange(nSamples_per_unlabel * n_class)
+test_random_ind = np.arange(nSamples_unlabel)
 np.random.shuffle(train_random_ind)
 np.random.shuffle(val_random_ind)
-np.random.shuffle(test_random_ind)
+# np.random.shuffle(test_random_ind)
 
 train_data = train_data[train_random_ind]
 train_target = train_target[train_random_ind]
@@ -387,8 +389,8 @@ if opt.save_data:
     assert W.nnz % 2 == 0
     assert np.abs(W - W.T).mean() < 1e-10
 
-    # data_path = f'../data/vat_feat_nn/{opt.dataset}/'
-    data_path = f'../data/vat_feat_nn/{opt.dataset}_{n_class}/'
+    data_path = f'./data/vat_feat_nn_split_all/{opt.dataset}/'
+    # data_path = f'../data/vat_feat_nn/{opt.dataset}_{n_class}/'
 
     data_path_P = Path(data_path)
     data_path_P.mkdir(parents=True, exist_ok=True)
