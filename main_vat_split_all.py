@@ -292,7 +292,7 @@ max_val_acc = 0.0
 patience = 0
 max_patience = 10
 
-path_best_model = f'./saved_models/{opt.dataset}/test_model_{n_class}'
+path_best_model = f'./saved_models/{opt.dataset}/test_model_vat_split_all_train_{opt.num_train}_total_{opt.num_total}'
 if not os.path.exists(os.path.dirname(path_best_model)):
     os.mkdir(os.path.dirname(path_best_model))
 
