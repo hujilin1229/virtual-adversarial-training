@@ -393,24 +393,24 @@ if opt.save_data:
     feature_maps = feature_maps.numpy()
     all_target = all_target.cpu().numpy()
 
-    # W = construct_adjacent_matrix(K, feature_maps, N)
+    W = construct_adjacent_matrix(K, feature_maps, N)
 
-    # # Construct Adjacent Matrix
-    # nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
-    # distances, indices = nbrs.kneighbors(feature_maps)
-    #
-    # col_indices = np.reshape(indices, (-1))
-    # row_indices = np.repeat(np.arange(N), K)
-    #
-    # dist_list = [1] * len(col_indices)
-    # W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
-    # # No self-connections.
-    # W.setdiag(0)
-    # # Non-directed graph.
-    # bigger = W.T > W
-    # W = W - W.multiply(bigger) + W.T.multiply(bigger)
-    # assert W.nnz % 2 == 0
-    # assert np.abs(W - W.T).mean() < 1e-10
+    # Construct Adjacent Matrix
+    nbrs = NearestNeighbors(n_neighbors=K, algorithm='ball_tree').fit(feature_maps)
+    distances, indices = nbrs.kneighbors(feature_maps)
+
+    col_indices = np.reshape(indices, (-1))
+    row_indices = np.repeat(np.arange(N), K)
+
+    dist_list = [1] * len(col_indices)
+    W = scipy.sparse.coo_matrix((dist_list, (row_indices, col_indices)), shape=(N, N))
+    # No self-connections.
+    W.setdiag(0)
+    # Non-directed graph.
+    bigger = W.T > W
+    W = W - W.multiply(bigger) + W.T.multiply(bigger)
+    assert W.nnz % 2 == 0
+    assert np.abs(W - W.T).mean() < 1e-10
     #
 
     data_path = f'./data/vat_feat_nn_split_all/{opt.dataset}/'
@@ -426,7 +426,7 @@ if opt.save_data:
     np.save(data_path + 'train_ind.npy', np.arange(num_labeled))
     np.save(data_path + 'val_ind.npy', np.arange(num_labeled, num_valid + num_labeled))
     np.save(data_path + 'test_ind.npy', np.arange(num_valid + num_labeled, N))
-    # scipy.sparse.save_npz(data_path + 'adj.npz', W)
+    scipy.sparse.save_npz(data_path + 'adj.npz', W)
 
     # correct_connect_sum = 0
     # connect_sum = 0
